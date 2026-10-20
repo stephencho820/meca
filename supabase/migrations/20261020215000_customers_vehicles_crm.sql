@@ -94,6 +94,8 @@ begin
   if tg_op='UPDATE' and new.customer_name is not distinct from old.customer_name
     and new.customer_phone is not distinct from old.customer_phone
     and new.vehicle_model is not distinct from old.vehicle_model
+    and old.customer_id is not null
+    and (nullif(btrim(coalesce(new.vehicle_model,'')),'') is null or old.vehicle_id is not null)
   then
     -- Prevent arbitrary reassignment of customer/vehicle IDs by table clients.
     new.customer_id:=old.customer_id;new.vehicle_id:=old.vehicle_id;
