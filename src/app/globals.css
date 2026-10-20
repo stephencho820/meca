@@ -65,3 +65,15 @@
 .ops-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .workflow-status{display:inline-block;font-size:11px;padding:4px 8px;border-radius:30px;background:#edf5e7;color:#42694b;font-weight:700}
 @media(max-width:610px){.ops-form-grid{grid-template-columns:1fr}.workflow-step{font-size:9px}.workflow-dot{width:24px;height:24px}.schedule-toolbar{gap:10px}.booking-edit-modal{width:100vw;max-height:98vh;border-radius:14px 14px 0 0;margin-top:auto}.schedule-month .schedule-month-cell{min-height:77px;padding:6px 3px}.schedule-month .cal-item{font-size:9px}}
+
+/* Daily workshop workflow board */
+.workflow-board{display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));gap:12px;overflow-x:auto;padding:4px 0 12px}
+.workflow-column{min-width:170px;background:#f5f8f2;border:1px solid #e3ebe0;border-radius:13px;padding:12px}
+.workflow-column>.row-between{padding:2px 0 12px;font-size:13px;gap:8px}
+.workflow-count{background:white;border:1px solid #e0e8da;border-radius:20px;padding:3px 10px;color:#426348;font-size:12px}
+.workflow-list{display:flex;flex-direction:column;gap:9px;min-height:115px}
+.workflow-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;background:white;border:1px solid #e0e9dc;border-radius:10px;padding:12px;text-align:left;box-shadow:0 2px 8px #1c44200b;color:#283e2e}
+.workflow-card:hover{border-color:#a3d47e;background:#fbfef8}
+.workflow-card>span{font-size:10px;color:#819381}.workflow-card>strong{font-size:14px}.workflow-card>small{font-size:11px;color:#708073}
+.workflow-placeholder{color:#abb7a9;font-size:12px;padding:19px 5px;text-align:center}
+@media(max-width:1100px){.workflow-board{display:flex}.workflow-column{flex:0 0 210px}}
