@@ -33,6 +33,32 @@ function Dashboard(){
     setBookings((b||[]) as Booking[]);setServices((svc||[]) as Service[]);
     setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);
   },[db,isDemo]);
+  const syncBookings=useCallback(async(s:Shop)=>{
+    if(!db||isDemo)return;
+    const {data,error:readError}=await db.from("bookings")
+      .select("*").eq("shop_id",s.id)
+      .order("starts_at",{ascending:false}).limit(500);
+    if(readError){setError("최신 예약 목록을 불러오지 못했습니다.");return;}
+    setBookings((data||[]) as Booking[]);
+  },[db,isDemo]);
+  useEffect(()=>{
+    if(isDemo||!db||!shop)return;
+    let active=true;
+    const sync=()=>{if(active&&document.visibilityState==="visible")void syncBookings(shop);};
+    // Owner-only RLS policies are enforced for every row delivered by Realtime.
+    const channel=db.channel("meca-bookings-"+shop.id)
+      .on("postgres_changes",{event:"*",schema:"public",table:"bookings",filter:"shop_id=eq."+shop.id},
+          ()=>{if(active)void syncBookings(shop);})
+      .subscribe();
+    const timer=window.setInterval(sync,20000); // reconnect/poll fallback
+    window.addEventListener("focus",sync);
+    document.addEventListener("visibilitychange",sync);
+    return ()=>{
+      active=false;window.clearInterval(timer);window.removeEventListener("focus",sync);
+      document.removeEventListener("visibilitychange",sync);void db.removeChannel(channel);
+    };
+  },[shop,db,isDemo,syncBookings]);
+
   useEffect(()=>{
     if(isDemo){setBookings(demoBookings());setLoading(false);return;}
     if(!db){setLoading(false);setError("Supabase 연결이 필요합니다. 환경 변수를 설정한 후 다시 시도해 주세요.");return;}
@@ -70,7 +96,10 @@ function Dashboard(){
   const copy=async()=>{if(!shop)return;const url=window.location.origin+"/book/"+shop.slug;try{await navigator.clipboard.writeText(url);setNotice("예약 링크를 복사했습니다.");}catch{setNotice(url);}setTimeout(()=>setNotice(""),3500);};
   const setStatus=async(b:Booking,status:Booking["status"])=>{
     if(isDemo){updateDemoBooking(b.id,status);setBookings(demoBookings());return;}
-    if(!db||!shop)return;const {error}=await db.from("bookings").update({status}).eq("id",b.id).eq("shop_id",shop.id);if(error){setError("예약 상태 변경에 실패했습니다.");return;}await refresh(shop);
+    if(!db||!shop)return;setError("");
+    const {error}=await db.from("bookings").update({status}).eq("id",b.id).eq("shop_id",shop.id);
+    if(error){setError(error.message.includes("SLOT_UNAVAILABLE")?"이미 다른 예약이 있어 다시 확정할 수 없습니다.":"예약 상태 변경에 실패했습니다.");return;}
+    await syncBookings(shop);
   };
   const addManual=async(e:React.FormEvent)=>{e.preventDefault();if(!shop)return;const svc=services.find(s=>s.id===addForm.service);if(!svc){setError("서비스를 선택해 주세요.");return;}
     if(!/^01\d{8,9}$/.test(addForm.phone.replace(/\D/g,""))){setError("휴대전화 번호를 확인해 주세요.");return;}
@@ -78,7 +107,15 @@ function Dashboard(){
     const item:Booking={id:crypto.randomUUID(),shop_id:shop.id,service_id:svc.id,service_name:svc.name,customer_name:addForm.name,customer_phone:addForm.phone.replace(/\D/g,""),vehicle_model:addForm.vehicle,notes:"전화·방문 접수",starts_at:start.toISOString(),ends_at:end.toISOString(),status:"confirmed",source:"manual"};
     setSaving(true);setError("");
     if(isDemo){addDemoBooking(item);setBookings(demoBookings());}
-    else if(db){const {error}=await db.from("bookings").insert({...item,id:undefined});if(error){setError("예약 추가에 실패했습니다. 시간을 확인해 주세요.");setSaving(false);return;}await refresh(shop);}
+    else if(db){
+      const {error}=await db.from("bookings").insert({...item,id:undefined});
+      if(error){
+        const conflict=error.message.includes("SLOT_UNAVAILABLE");
+        setError(conflict?"해당 시간은 예약이 가득 찼거나 휴무일입니다. 영업시간 및 예약 현황을 확인해 주세요.":"예약 추가에 실패했습니다. 고객 정보와 정비 항목을 확인해 주세요.");
+        setSaving(false);return;
+      }
+      await syncBookings(shop);
+    }
     setSaving(false);setShowAdd(false);setNotice("예약을 추가했습니다.");setTimeout(()=>setNotice(""),3500);
   };
   const saveService=async(e:React.FormEvent)=>{e.preventDefault();if(!editService||!shop)return;setSaving(true);
@@ -103,7 +140,7 @@ function Dashboard(){
     setSaving(false);
   };
   const addBlocked=async()=>{
-    if(!shop||!/^\\d{4}-\\d{2}-\\d{2}$/.test(newBlocked))return;
+    if(!shop||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(newBlocked))return;
     if(blocked.some(b=>b.blocked_date===newBlocked)){setError("이미 등록된 휴무일입니다.");return;}
     const row:Blocked={shop_id:shop.id,blocked_date:newBlocked,reason:null};
     if(isDemo)setBlocked(x=>[...x,row].sort((a,b)=>a.blocked_date.localeCompare(b.blocked_date)));
