@@ -31,7 +31,7 @@ begin
  begin
    update public.bookings set starts_at=starts_at+interval '30 minutes' where shop_id=v_shop and customer_name='One';
    raise exception 'IMMUTABLE_BYPASS';
- exception when others then if sqlerrm<>'IMMUTABLE_BOOKING' then raise; end if;
+ exception when others then if sqlerrm<>'INVALID_BOOKING' then raise; end if;
  end;
  insert into public.blocked_dates(shop_id,blocked_date) values(v_shop,v_day+7);
  select count(*) into v_n from public.get_available_slots('meca-phase2-test',v_service,v_day+7);

@@ -18,6 +18,8 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
   const [consent,setConsent] = useState(false);
   const [submitting,setSubmitting] = useState(false);
   const [bookingId,setBookingId] = useState("");
+  const [manageToken,setManageToken] = useState("");
+  const [copyMessage,setCopyMessage] = useState("");
   const [submitError,setSubmitError] = useState("");
   useEffect(()=>{if(isDemo)return;let live=true;fetch("/api/shops/"+encodeURIComponent(slug)).then(r=>r.json().then(j=>({ok:r.ok,json:j}))).then(r=>{if(!live)return;if(r.ok)setData(r.json);else setLoadError(r.json.error||"가게를 찾을 수 없습니다.");}).catch(()=>{if(live)setLoadError("매장 정보를 불러오지 못했습니다.");});return()=>{live=false;};},[slug,isDemo]);
   useEffect(()=>{
@@ -44,7 +46,7 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
           setSubmitError("선택한 시간이 마감됐어요. 다른 시간을 선택해 주세요.");
           setDay("");setTime("");setStep(1);return;
         }
-        addDemoBooking(b);setBookingId(b.id);setStep(3);
+        addDemoBooking(b);setBookingId(b.id);setManageToken("demo-"+b.id);setStep(3);
       }else{
         const res=await fetch("/api/bookings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({shop_slug:slug,service_id:service.id,date:day,time,customer_name:customer.name.trim(),customer_phone:phone,vehicle_model:customer.vehicle.trim(),notes:customer.notes.trim(),privacy_consent:consent})});
         const j=await res.json();if(!res.ok){
@@ -54,7 +56,7 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
           }
           throw new Error(j.error||"예약에 실패했습니다.");
         }
-        setBookingId(j.booking_id);setStep(3);
+        setBookingId(j.booking_id);setManageToken(j.manage_token||"");setStep(3);
       }
     }catch(e){setSubmitError(e instanceof Error?e.message:"예약 도중 오류가 발생했습니다.");}
     finally{setSubmitting(false);}
@@ -87,7 +89,14 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
       {submitError&&<p className="error" style={{marginTop:16}}>{submitError}</p>}
       <div className="booking-bottom"><button className="btn btn-outline" onClick={()=>setStep(1)}><ArrowLeft size={16}/> 이전</button><button className="btn btn-dark" disabled={submitting||!consent||!customer.name.trim()||!customer.phone.trim()} onClick={submit}>{submitting?<Loader2 size={16} className="spin"/>:<Check size={16}/>} {submitting?"예약 접수 중":"예약 접수하기"}</button></div>
     </>}
-    {step===3&&<div className="booking-done"><div className="booking-done-icon"><Check size={38}/></div><span className="eyebrow">BOOKING RECEIVED</span><h2>{service?.approval_required?"예약 요청이 접수됐어요!":"예약이 접수됐어요!"}</h2><p className="booking-help"> {service?.approval_required?"가게에서 확인 후 확정됩니다.":"아래 예약 정보를 확인해 주세요."}<br/>{isDemo?"데모 예약은 이 브라우저의 관리자 데모에만 저장됩니다.":"실제 알림 메시지는 아직 연결되지 않았습니다."}</p><div className="booking-summary" style={{textAlign:"left"}}><div>매장 <strong>{shop.name}</strong></div><div>서비스 <strong>{service?.name}</strong></div><div>일시 <strong>{day} {time}</strong></div><div>예약번호 <strong>{bookingId.slice(0,8).toUpperCase()}</strong></div></div><button className="btn btn-outline btn-wide" onClick={()=>{setStep(0);setService(null);setDay("");setTime("");setCustomer({name:"",phone:"",vehicle:"",notes:""});setConsent(false);}}>다른 예약하기</button>{isDemo&&<a className="btn btn-dark btn-wide" style={{marginTop:10}} href="/dashboard?demo=1">관리자 화면에서 확인하기 <ArrowRight size={15}/></a>}</div>}
+    {step===3&&<div className="booking-done"><div className="booking-done-icon"><Check size={38}/></div><span className="eyebrow">BOOKING RECEIVED</span><h2>{service?.approval_required?"예약 요청이 접수됐어요!":"예약이 접수됐어요!"}</h2><p className="booking-help"> {service?.approval_required?"가게에서 확인 후 확정됩니다.":"아래 예약 정보를 확인해 주세요."}<br/>{isDemo?"데모 예약은 이 브라우저의 관리자 데모에만 저장됩니다.":"실제 알림 메시지는 아직 연결되지 않았습니다."}</p><div className="booking-summary" style={{textAlign:"left"}}><div>매장 <strong>{shop.name}</strong></div><div>서비스 <strong>{service?.name}</strong></div><div>일시 <strong>{day} {time}</strong></div><div>예약번호 <strong>{bookingId.slice(0,8).toUpperCase()}</strong></div></div>{manageToken&&<div style={{padding:"15px",background:"#eff8e7",borderRadius:13,margin:"16px 0",textAlign:"left"}}>
+        <strong style={{fontSize:14}}>예약 관리 링크를 보관하세요</strong>
+        <p style={{fontSize:12,color:"#667968",lineHeight:1.8,margin:"9px 0"}}>별도 회원가입 없이 방문 날짜를 변경하거나 예약을 취소할 수 있습니다. 이 링크는 예약자 본인만 보관하세요.</p>
+        <a className="btn btn-dark btn-wide" href={"/manage#token="+manageToken}>내 예약 확인 · 변경하기 <ArrowRight size={15}/></a>
+        <button className="btn btn-outline btn-wide" style={{marginTop:8}} onClick={async()=>{try{await navigator.clipboard.writeText(window.location.origin+"/manage#token="+manageToken);setCopyMessage("예약 관리 링크를 복사했어요.");}catch{setCopyMessage("복사할 수 없습니다. 위 링크를 직접 열어 저장해 주세요.");}}}>예약 관리 링크 복사</button>
+        {copyMessage&&<p role="status" style={{fontSize:12,marginBottom:0}}>{copyMessage}</p>}
+      </div>}
+      <button className="btn btn-outline btn-wide" onClick={()=>{setManageToken("");setCopyMessage("");setStep(0);setService(null);setDay("");setTime("");setCustomer({name:"",phone:"",vehicle:"",notes:""});setConsent(false);}}>다른 예약하기</button>{isDemo&&<a className="btn btn-dark btn-wide" style={{marginTop:10}} href="/dashboard?demo=1">관리자 화면에서 확인하기 <ArrowRight size={15}/></a>}</div>}
     {step<3&&<p style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,color:"#a3aea5",fontSize:11,marginTop:30}}><ShieldCheck size={13}/> Powered by MECA · 간편한 정비 예약</p>}
   </div>;
 }

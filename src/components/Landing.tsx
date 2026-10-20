@@ -19,9 +19,9 @@ export default function Landing() {
   return <>
     <header className="navbar"><div className="container nav-inner">
       <Link href="/" className="logo"><span className="logo-icon"><Wrench size={20}/></span> meca<span style={{color:"#6eaa52"}}>.</span></Link>
-      <nav className="nav-links"><a href="#features">서비스 소개</a><a href="#how">이용 방법</a><a href="#pricing">요금제</a><Link href="/demo">데모 체험</Link></nav>
+      <nav className="nav-links"><a href="#features">서비스 소개</a><a href="#how">이용 방법</a><a href="#pricing">요금제</a><Link href="/demo">데모 체험</Link><Link href="/manage">예약 확인·변경</Link></nav>
       <div className="nav-actions"><Link className="btn btn-ghost" href="/login">로그인</Link><button className="btn btn-dark" onClick={start}>무료로 시작하기 <ArrowUpRight size={15}/></button><button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="메뉴 열기">{menu?<X/>:<Menu/>}</button></div>
-    </div>{menu&&<div style={{padding:"12px 20px",background:"#fff",display:"grid",gap:15}}><a href="#features" onClick={()=>setMenu(false)}>서비스 소개</a><a href="#pricing" onClick={()=>setMenu(false)}>요금제</a><Link href="/demo">데모 체험</Link></div>}</header>
+    </div>{menu&&<div style={{padding:"12px 20px",background:"#fff",display:"grid",gap:15}}><a href="#features" onClick={()=>setMenu(false)}>서비스 소개</a><a href="#pricing" onClick={()=>setMenu(false)}>요금제</a><Link href="/demo">데모 체험</Link><Link href="/manage">예약 확인·변경</Link></div>}</header>
     <main>
       <section className="hero"><div className="container hero-grid">
         <div><span className="tag"><Sparkles size={14}/> 우리 가게를 위한 스마트 예약 솔루션</span>
@@ -58,7 +58,7 @@ export default function Landing() {
       ].map(([q,a])=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div></div></div></section>
       <section style={{background:"#dbf5c5",padding:"70px 0",textAlign:"center"}}><div className="container"><h2 className="section-title">우리 가게 예약, 이제 메카로 시작하세요.</h2><p className="section-desc">고객에게는 더 쉬운 예약, 사장님에게는 더 여유로운 하루.</p><Link href="/start" className="btn btn-dark" style={{marginTop:14}}>무료로 시작하기 <ArrowRight size={16}/></Link></div></section>
     </main>
-    <footer className="footer"><div className="container"><div className="footer-row"><div><Link href="/" className="logo"><span className="logo-icon"><Wrench size={20}/></span> meca.</Link><p style={{color:"#b4c7bb",fontSize:13,lineHeight:1.9}}>현장을 이해하는 예약 관리.<br/>Made for better workshops.</p></div><div style={{display:"flex",gap:55,fontSize:13}}><div style={{display:"grid",gap:13}}><strong>서비스</strong><a href="#features">주요 기능</a><a href="#pricing">요금제</a><Link href="/demo">예약 데모</Link></div><div style={{display:"grid",gap:13}}><strong>계정</strong><Link href="/login">로그인</Link><Link href="/start">가입하기</Link><Link href="/dashboard?demo=1">관리자 데모</Link></div></div></div><div className="footer-bottom">© 2026 MECA. 본 서비스는 독자적으로 개발된 제품으로 Avenue와 제휴·관련이 없습니다.</div></div></footer>
+    <footer className="footer"><div className="container"><div className="footer-row"><div><Link href="/" className="logo"><span className="logo-icon"><Wrench size={20}/></span> meca.</Link><p style={{color:"#b4c7bb",fontSize:13,lineHeight:1.9}}>현장을 이해하는 예약 관리.<br/>Made for better workshops.</p></div><div style={{display:"flex",gap:55,fontSize:13}}><div style={{display:"grid",gap:13}}><strong>서비스</strong><a href="#features">주요 기능</a><a href="#pricing">요금제</a><Link href="/demo">예약 데모</Link><Link href="/manage">예약 확인·변경</Link></div><div style={{display:"grid",gap:13}}><strong>계정</strong><Link href="/login">로그인</Link><Link href="/start">가입하기</Link><Link href="/dashboard?demo=1">관리자 데모</Link></div></div></div><div className="footer-bottom">© 2026 MECA. 본 서비스는 독자적으로 개발된 제품으로 Avenue와 제휴·관련이 없습니다.</div></div></footer>
     {showDemo&&<div className="modal-backdrop" onClick={()=>setShowDemo(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setShowDemo(false)} aria-label="닫기"><X size={18}/></button><BookingFlow slug="demo-garage" embedded/></div></div>}
   </>;
 }
