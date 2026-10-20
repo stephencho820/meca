@@ -115,7 +115,7 @@ begin
   if v_model is null then return new; end if;
   if length(v_model)>100 then raise exception 'INVALID_VEHICLE'; end if;
   -- Link to an existing car only when its model matches unambiguously.
-  select min(v.id),count(*) into v_vehicle,v_hits
+  select (array_agg(v.id order by v.created_at))[1],count(*) into v_vehicle,v_hits
     from public.vehicles v where v.shop_id=new.shop_id
       and v.customer_id=v_customer and v.model=v_model;
   if v_hits=1 then new.vehicle_id:=v_vehicle;return new;end if;
