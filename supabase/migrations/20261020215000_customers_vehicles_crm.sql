@@ -68,10 +68,13 @@ returns trigger language plpgsql security definer set search_path=''
 as $$
 begin
  if new.shop_id is distinct from old.shop_id then raise exception 'CRM_IMMUTABLE_SHOP'; end if;
- if tg_table_name='vehicles' and new.customer_id is distinct from old.customer_id
- then raise exception 'CRM_IMMUTABLE_OWNER'; end if;
- if tg_table_name='customers' and new.phone is distinct from old.phone
- then raise exception 'CRM_IMMUTABLE_PHONE'; end if;
+ if tg_table_name='vehicles' then
+   if new.customer_id is distinct from old.customer_id
+   then raise exception 'CRM_IMMUTABLE_OWNER'; end if;
+ elsif tg_table_name='customers' then
+   if new.phone is distinct from old.phone
+   then raise exception 'CRM_IMMUTABLE_PHONE'; end if;
+ end if;
  new.updated_at:=now();
  return new;
 end;$$;
