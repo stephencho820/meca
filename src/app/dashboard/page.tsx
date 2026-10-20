@@ -15,7 +15,7 @@ function Dashboard(){
   const db=useMemo(()=>browserDb(),[]);
   const [tab,setTab]=useState<Tab>("overview"),[shop,setShop]=useState<Shop|null>(isDemo?demoShop:null),[bookings,setBookings]=useState<Booking[]>([]),[services,setServices]=useState<Service[]>(isDemo?demoServices:[]),[loading,setLoading]=useState(!isDemo),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const [filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[month,setMonth]=useState(()=>{const d=kstDate(new Date());return d.slice(0,7);}),[showAdd,setShowAdd]=useState(false),[addForm,setAddForm]=useState({name:"",phone:"",vehicle:"",service:demoServices[0].id,day:kstDate(new Date()),time:"10:00"});
-  const [editService,setEditService]=useState<Service|null>(null),[saving,setSaving]=useState(false),[shopForm,setShopForm]=useState<Shop|null>(null);
+  const [editService,setEditService]=useState<Service|null>(null),[saving,setSaving]=useState(false),[shopForm,setShopForm]=useState<Shop|null>(isDemo?demoShop:null);
   const refresh=useCallback(async(s:Shop)=>{
     if(isDemo){setBookings(demoBookings());return;}
     if(!db)return;
