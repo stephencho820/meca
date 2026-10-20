@@ -6,13 +6,17 @@ import { Activity, ArrowRight, BarChart3, CalendarDays, Check, ChevronLeft, Chev
 import { addDemoBooking, demoBookings, demoServices, demoShop, kstDate, money, updateDemoBooking } from "@/lib/demo";
 import { browserDb } from "@/lib/supabase";
 import type { Booking, Service, Shop } from "@/lib/types";
-type Tab="overview"|"calendar"|"bookings"|"customers"|"services"|"settings";
-const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"settings",label:"매장 설정",icon:Settings}];
+type Tab="overview"|"calendar"|"bookings"|"customers"|"services"|"notifications"|"settings";
+const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
 const statusText:Record<Booking["status"],string>={pending:"승인 대기",confirmed:"예약 확정",completed:"정비 완료",cancelled:"취소"};
 const koDate=(date:string)=>new Date(date).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
 function Dashboard(){
   const router=useRouter(),search=useSearchParams(),isDemo=search.get("demo")==="1";
   const db=useMemo(()=>browserDb(),[]);
+  type NotificationRow={id:string;event_type:string;status:string;created_at:string;attempts:number;last_error:string|null};
+  const [notificationRows,setNotificationRows]=useState<NotificationRow[]>([]);
+  const [notificationsLoading,setNotificationsLoading]=useState(false);
+
   const [tab,setTab]=useState<Tab>("overview"),[shop,setShop]=useState<Shop|null>(isDemo?demoShop:null),[bookings,setBookings]=useState<Booking[]>([]),[services,setServices]=useState<Service[]>(isDemo?demoServices:[]),[loading,setLoading]=useState(!isDemo),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const [filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[month,setMonth]=useState(()=>{const d=kstDate(new Date());return d.slice(0,7);}),[showAdd,setShowAdd]=useState(false),[addForm,setAddForm]=useState({name:"",phone:"",vehicle:"",service:demoServices[0].id,day:kstDate(new Date()),time:"10:00"});
   type Hours = {shop_id:string;day_of_week:number;open_time:string;close_time:string;is_closed:boolean};
@@ -33,6 +37,31 @@ function Dashboard(){
     setBookings((b||[]) as Booking[]);setServices((svc||[]) as Service[]);
     setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);
   },[db,isDemo]);
+  const refreshNotifications=useCallback(async(s:Shop)=>{
+    if(isDemo||!db)return;
+    setNotificationsLoading(true);
+    const {data,error}=await db.from("notification_outbox")
+      .select("id,event_type,status,created_at,attempts,last_error")
+      .eq("shop_id",s.id).order("created_at",{ascending:false}).limit(100);
+    if(error)setError("알림 내역을 불러오지 못했습니다.");
+    else setNotificationRows((data||[]) as NotificationRow[]);
+    setNotificationsLoading(false);
+  },[db,isDemo]);
+  useEffect(()=>{
+    if(tab==="notifications"&&shop&&!isDemo)void refreshNotifications(shop);
+  },[tab,shop,isDemo,refreshNotifications]);
+  const dispatchFor=useCallback(async(id:string)=>{
+    if(!db||isDemo)return;
+    const {data}=await db.auth.getSession();
+    const token=data.session?.access_token;
+    if(!token)return;
+    try{await fetch("/api/notifications/dispatch",{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},
+        body:JSON.stringify({booking_id:id})
+      });}catch{/* Outbox remains queued. */}
+  },[db,isDemo]);
+
   const syncBookings=useCallback(async(s:Shop)=>{
     if(!db||isDemo)return;
     const {data,error:readError}=await db.from("bookings")
@@ -100,6 +129,7 @@ function Dashboard(){
     const {error}=await db.from("bookings").update({status}).eq("id",b.id).eq("shop_id",shop.id);
     if(error){setError(error.message.includes("SLOT_UNAVAILABLE")?"이미 다른 예약이 있어 다시 확정할 수 없습니다.":"예약 상태 변경에 실패했습니다.");return;}
     await syncBookings(shop);
+    void dispatchFor(b.id);
   };
   const addManual=async(e:React.FormEvent)=>{e.preventDefault();if(!shop)return;const svc=services.find(s=>s.id===addForm.service);if(!svc){setError("서비스를 선택해 주세요.");return;}
     if(!/^01\d{8,9}$/.test(addForm.phone.replace(/\D/g,""))){setError("휴대전화 번호를 확인해 주세요.");return;}
@@ -108,13 +138,14 @@ function Dashboard(){
     setSaving(true);setError("");
     if(isDemo){addDemoBooking(item);setBookings(demoBookings());}
     else if(db){
-      const {error}=await db.from("bookings").insert({...item,id:undefined});
+      const {data:created,error}=await db.from("bookings").insert({...item,id:undefined}).select("id").single();
       if(error){
         const conflict=error.message.includes("SLOT_UNAVAILABLE");
         setError(conflict?"해당 시간은 예약이 가득 찼거나 휴무일입니다. 영업시간 및 예약 현황을 확인해 주세요.":"예약 추가에 실패했습니다. 고객 정보와 정비 항목을 확인해 주세요.");
         setSaving(false);return;
       }
       await syncBookings(shop);
+      if(created?.id)void dispatchFor(created.id);
     }
     setSaving(false);setShowAdd(false);setNotice("예약을 추가했습니다.");setTimeout(()=>setNotice(""),3500);
   };
@@ -171,6 +202,32 @@ function Dashboard(){
         {tab==="calendar"&&<div className="dash-panel"><div className="row-between" style={{marginBottom:18}}><h3 style={{margin:0}}>{month.replace("-","년 ")}월 예약</h3><div className="row-between"><button className="btn btn-outline" aria-label="이전 달" onClick={()=>navigateMonth(-1)}><ChevronLeft size={17}/></button><button className="btn btn-outline" onClick={()=>setMonth(kstDate(new Date()).slice(0,7))}>이번 달</button><button className="btn btn-outline" aria-label="다음 달" onClick={()=>navigateMonth(1)}><ChevronRight size={17}/></button></div></div><div className="calendar-grid">{["일","월","화","수","목","금","토"].map(d=><div key={d} style={{textAlign:"center",padding:12,fontSize:12,fontWeight:800,borderRight:"1px solid #eee",background:"#f8faf6"}}>{d}</div>)}{calendarDays.map((d,i)=>{const day=d?month+"-"+String(d).padStart(2,"0"):"";const items=bookings.filter(b=>d&&kstDate(new Date(b.starts_at))===day&&b.status!=="cancelled");return <div key={i} className={"cal-cell"+(day===today?" today":"")}><strong>{d||""}</strong>{items.slice(0,3).map(b=><div key={b.id} className="cal-item" title={b.customer_name+" · "+b.service_name}>{new Date(b.starts_at).toLocaleTimeString("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",hour12:false})} {b.customer_name}</div>)}{items.length>3&&<div style={{fontSize:10}}>+{items.length-3}건</div>}</div>;})}</div></div>}
         {tab==="bookings"&&<div className="dash-panel"><div className="row-between" style={{flexWrap:"wrap"}}><h3>예약 목록 · {filtered.length}건</h3><div className="row-between" style={{gap:7}}><Search size={17} color="#809088"/><input className="field" style={{minHeight:36,width:180}} value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명 / 연락처 / 정비"/></div></div><div className="dash-tabbar">{[["all","전체"],["pending","승인 대기"],["confirmed","확정"],["completed","완료"],["cancelled","취소"]].map(([id,label])=><button key={id} className={"dash-tab"+(filter===id?" active":"")} onClick={()=>setFilter(id)}>{label}</button>)}</div><BookingTable bookings={filtered} setStatus={setStatus}/></div>}
         {tab==="customers"&&<div className="dash-panel"><h3>고객 목록 · {customers.length}명</h3><div className="table-wrap">{customers.length?<table className="data-table"><thead><tr><th>이름</th><th>연락처</th><th>차량</th><th>예약 횟수</th><th>최근 예약</th></tr></thead><tbody>{customers.map(c=><tr key={c.phone}><td><strong>{c.name}</strong></td><td>{c.phone}</td><td>{c.vehicle||"—"}</td><td>{c.count}회</td><td>{koDate(c.last)}</td></tr>)}</tbody></table>:<div className="dash-empty">아직 고객이 없습니다. 첫 예약이 접수되면 이곳에서 확인할 수 있어요.</div>}</div></div>}
+        {tab==="notifications"&&<div className="dash-panel">
+          <div className="row-between" style={{alignItems:"flex-start",flexWrap:"wrap"}}>
+            <div><h3>카카오 알림톡 처리 내역</h3><p className="booking-help">
+              예약 접수·확정·변경·취소와 방문 하루 전 알림을 기록합니다.
+              '접수 완료'는 발송 업체의 요청 수락이며 최종 전달 성공을 의미하지 않습니다.
+            </p></div>
+            <button className="btn btn-outline" onClick={()=>shop&&void refreshNotifications(shop)}>새로고침</button>
+          </div>
+          <div style={{background:"#f1f7e9",padding:15,borderRadius:12,fontSize:13,lineHeight:1.8,marginBottom:19}}>
+            <strong>연동 준비 상태</strong><br/>
+            실제 전송에는 SOLAPI 계정, 카카오 비즈니스 채널과 승인된 알림톡 템플릿,
+            Vercel의 서버 비밀 환경변수가 필요합니다. 연동 전에는 예약 이벤트만 기록됩니다.
+          </div>
+          {isDemo?<div className="dash-empty">데모에서는 실제 알림톡을 전송하지 않습니다.</div>:
+          notificationsLoading?<div className="dash-empty">불러오는 중...</div>:
+          notificationRows.length===0?<div className="dash-empty">알림 이력이 없습니다. 새 예약이 접수되면 기록됩니다.</div>:
+          <div className="table-wrap"><table className="data-table"><thead><tr>
+            <th>생성 일시</th><th>유형</th><th>상태</th><th>시도</th>
+          </tr></thead><tbody>{notificationRows.map(n=><tr key={n.id}>
+            <td>{koDate(n.created_at)}</td>
+            <td>{({requested:"예약 요청",confirmed:"예약 확정",rescheduled:"일정 변경",cancelled:"예약 취소",reminder:"방문 전 알림"} as Record<string,string>)[n.event_type]||n.event_type}</td>
+            <td><span className={"pill "+(n.status==="submitted"?"confirmed":n.status==="failed"?"cancelled":"pending")}>{({pending:"대기 중",processing:"처리 중",submitted:"발송사 접수 완료",skipped:"건너뜀",failed:"처리 오류"} as Record<string,string>)[n.status]||n.status}</span>
+            {n.last_error&&<small className="muted" style={{display:"block",marginTop:4}}>{n.last_error}</small>}</td>
+            <td>{n.attempts}</td>
+          </tr>)}</tbody></table></div>}
+        </div>}
         {tab==="services"&&<div className="dash-panel"><div className="row-between"><h3>예약 가능 정비 항목</h3><button className="btn btn-dark" onClick={()=>setEditService({id:"new-"+crypto.randomUUID().slice(0,5),name:"",description:"",duration_minutes:60,price_from:null,icon:"🔧",approval_required:false})}><Plus size={16}/> 항목 추가</button></div><div className="service-options">{services.map(s=><button className="service-option" key={s.id} onClick={()=>setEditService(s)}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>소요 {s.duration_minutes}분 · {money(s.price_from)} · {s.approval_required?"승인 후 확정":"자동 확정"}</small></div><Settings style={{marginLeft:"auto",color:"#809084"}} size={17}/></button>)}</div></div>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>매장 기본 정보</h3><form onSubmit={saveShop}>{[["매장명","name"],["전화번호","phone"],["주소","address"],["매장 소개","description"]].map(([label,key])=><div className="field-group" key={key}><label className="field-label">{label}</label><input className="field" value={String(shopForm?.[key as keyof Shop]||"")} onChange={e=>setShopForm(old=>old?{...old,[key]:e.target.value}:old)} required={key==="name"}/></div>)}<div className="field-group"><label className="field-label">동시 예약 수용 건수</label><input className="field" type="number" min={1} max={10} value={shopForm?.slot_capacity||1} onChange={e=>setShopForm(old=>old?{...old,slot_capacity:Number(e.target.value)}:old)}/></div><div className="field-group"><label className="field-label">예약 페이지 주소</label><input className="field" readOnly value={"/book/"+shop.slug}/><small className="hint">매장 주소는 예약 링크 안정성을 위해 자동 발급되고 고정됩니다.</small></div><button className="btn btn-dark" disabled={saving} type="submit">{saving?"저장 중":"설정 저장"}</button></form></div>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>영업시간 및 예약 가능 시간</h3><p className="booking-help">매일의 예약 가능 시간을 설정합니다. 선택한 시간과 정비 소요 시간을 기준으로 고객에게 예약 슬롯이 제공됩니다.</p>

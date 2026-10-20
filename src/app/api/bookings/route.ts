@@ -1,3 +1,4 @@
+import { processNotificationQueue } from "@/lib/notifications";
 import { NextRequest, NextResponse } from "next/server";
 import { publicDb } from "@/lib/supabase";
 
@@ -31,6 +32,9 @@ export async function POST(request:NextRequest){
       code==="INVALID_BOOKING"?"예약 정보를 다시 확인해 주세요.":"예약을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     return NextResponse.json({error:message,code},{status:code==="SLOT_UNAVAILABLE"?409:code==="INVALID_BOOKING"?400:500});
   }
+  // Transactional outbox is already committed by the booking trigger. Sending
+  // is best-effort and never makes the successfully created booking fail.
+  try{await processNotificationQueue(data.booking_id);}catch{/* outbox retained for operators */}
   return NextResponse.json({booking_id:data.booking_id,manage_token:data.manage_token},
     {status:201,headers:{"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
 }
