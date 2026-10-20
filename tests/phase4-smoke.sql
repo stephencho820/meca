@@ -1,11 +1,11 @@
 -- Transactional outbox smoke test in disposable CI database.
 do $$
 declare owner_id uuid:='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
- shop_id uuid; service_id uuid; day date;bid uuid; item public.notification_outbox%rowtype;
+ v_shop_id uuid; service_id uuid; day date;bid uuid; item public.notification_outbox%rowtype;
 begin
  insert into auth.users(id) values(owner_id);
- insert into public.shops(owner_id,name,slug) values(owner_id,'Notify test','meca-notify-test') returning id into shop_id;
- select id into service_id from public.services where shop_id=shop_id and name='엔진오일 교환' limit 1;
+ insert into public.shops(owner_id,name,slug) values(owner_id,'Notify test','meca-notify-test') returning id into v_shop_id;
+ select id into service_id from public.services where shop_id=v_shop_id and name='엔진오일 교환' limit 1;
  select min(d::date) into day from generate_series(current_date+2,current_date+8,interval '1 day') d
   where extract(dow from d) between 1 and 5;
  bid:=public.create_public_booking('meca-notify-test',service_id,day,'10:00','Tester','01012345678');
