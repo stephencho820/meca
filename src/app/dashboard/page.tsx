@@ -46,7 +46,8 @@ function Dashboard(){
       if(e){setError("매장 정보를 불러오지 못했습니다.");setLoading(false);return;}
       let s=(shops||[])[0] as Shop|undefined;
       if(!s){
-        const pending=localStorage.getItem("meca-pending-shop")||"나의 정비소";
+        const metadataName=typeof user.user_metadata?.shop_name==="string"?user.user_metadata.shop_name.trim().slice(0,70):"";
+        const pending=metadataName||localStorage.getItem("meca-pending-shop")||"나의 정비소";
         const slug="shop-"+crypto.randomUUID().slice(0,8);
         const {data:created,error:ce}=await db.from("shops").insert({owner_id:user.id,name:pending,slug,category:"자동차 정비"}).select("*").single();
         if(!live)return;
