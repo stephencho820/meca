@@ -71,7 +71,7 @@ for each row execute function meca_private.booking_workflow_guard();
 -- a repair service if its duration and the new interval fit within capacity.
 create or replace function meca_private.guard_booking()
 returns trigger language plpgsql security definer set search_path = ''
-as $
+as $$
 declare
   v_shop record;
   v_service record;
@@ -135,7 +135,7 @@ begin
   new.service_name := v_service.name;
   return new;
 end;
-$;
+$$;
 revoke all on function meca_private.guard_booking() from public,anon,authenticated;
 
 
