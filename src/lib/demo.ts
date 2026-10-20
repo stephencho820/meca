@@ -23,12 +23,25 @@ export function getDays(count = 14) {
     return { iso: kstDate(d), date: d, dayName: new Intl.DateTimeFormat("ko-KR", { weekday: "short", timeZone: "Asia/Seoul" }).format(d), label: new Intl.DateTimeFormat("ko-KR", { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(d) };
   });
 }
-export function demoSlots(day: string): TimeSlot[] {
+export function demoSlots(day: string, service: Service = demoServices[0]): TimeSlot[] {
   const weekday = new Date(day + "T12:00:00+09:00").getUTCDay();
   if (weekday === 0) return [];
-  const slots = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00"];
-  const now = new Date();
-  return slots.map(time => ({ time, available: new Date(day + "T" + time + ":00+09:00").getTime() > now.getTime() + 60 * 60 * 1000 }));
+  const slots = ["09:00","09:30","10:00","10:30","11:00","11:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00"];
+  const now = Date.now();
+  const existing = demoBookings().filter(b => b.status === "pending" || b.status === "confirmed");
+  const capacity = demoShop.slot_capacity || 1;
+  return slots.map(time => {
+    const start = new Date(day+"T"+time+":00+09:00").getTime();
+    const end = start + service.duration_minutes * 60_000;
+    const boundaries = [start, ...existing.map(b => new Date(b.starts_at).getTime())
+      .filter(t => t > start && t < end)];
+    const available = start > now+60*60*1000 && boundaries.every(t =>
+      existing.filter(b =>
+        new Date(b.starts_at).getTime() <= t && new Date(b.ends_at).getTime() > t
+      ).length < capacity
+    );
+    return {time, available};
+  });
 }
 const DEMO_KEY = "meca-demo-bookings";
 export function demoBookings(): Booking[] {
