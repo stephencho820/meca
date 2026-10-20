@@ -40,10 +40,22 @@ npm run dev
 1. MECA **전용 Supabase 프로젝트**를 생성합니다. 기존 운영 중인 다른 서비스의 Supabase 프로젝트와 DB를 공유하지 않는 것을 권장합니다.
 2. `supabase/migrations/20261020000000_initial_meca.sql`을 새 프로젝트의 SQL Editor에서 실행합니다. **운영 중인 DB에서는 실행하지 마세요.**
 3. Supabase **Project URL** 및 **anon/publishable key**를 `.env.local`과 Vercel 프로젝트 환경 변수의 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`에 추가합니다.
-4. Supabase Auth 이메일 로그인을 활성화하고 Site URL 및 Redirect URLs에 배포 도메인과 `/dashboard`를 추가합니다.
-5. `/start`에서 가입 후 메일 인증을 완료하고 로그인하면 매장과 기본 정비 항목·영업시간이 자동으로 생성됩니다.
+4. Supabase Auth 이메일 로그인을 활성화하고 Site URL을 서비스 도메인으로 설정합니다. Redirect URL 허용 목록에 `/auth/callback`, `/dashboard`, `/auth/confirm`을 추가합니다.
+5. `/start`에서 가입하면 매장 이름이 가입 사용자 metadata에도 안전하게 저장됩니다(접근 권한 판단에는 사용하지 않음). 기본 인증 링크를 통해 `/auth/callback`에서 세션이 만들어지고, `/dashboard`에 처음 로그인하면 매장과 기본 정비 항목·영업시간이 생성됩니다.
 
 **보안:** 서비스 롤 키는 사용하지 않습니다. 공개 예약은 제한된 DB RPC를 통해서만 생성하며 고객 예약 정보는 해당 매장의 인증된 소유주만 조회합니다. 단, 실제 서비스 전 API rate limit/CAPTCHA, 개인정보 처리방침, 보관·파기 주기와 로그 감사, 운영 장애 모니터링을 추가해야 합니다.
+
+## 이메일 인증 구현
+
+기본 Supabase 이메일 템플릿(`{{ .ConfirmationURL }}`)을 유지하면 가입 시 `emailRedirectTo`가 `/auth/callback`으로 지정되어, 인증 후 브라우저에서 세션을 확정합니다. 가입했던 브라우저에서 인증하는 것이 가장 확실합니다.
+
+더 안정적인 **다른 기기/브라우저 인증**을 원한다면 Supabase 대시보드의 `Authentication → Email Templates → Confirm signup`에서 버튼 링크를 다음과 같이 변경할 수 있습니다.
+
+```html
+<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email">이메일 인증하기</a>
+```
+
+`/auth/confirm`은 서버에서 해시 토큰을 검증하고 세션 쿠키를 생성합니다. 사이트 URL은 MECA 도메인으로 지정되어야 합니다. Supabase 기본 SMTP는 발송량 제한이 있으므로 정식 운영 전 전용 SMTP, 이용약관/개인정보 동의와 발송 테스트가 필요합니다.
 
 ## 알려진 범위와 후속 개발
 
