@@ -63,3 +63,19 @@ export function phoneFormat(value: string) {
   if (v.length <= 7) return v.replace(/^(\d{3})(\d+)/, "$1-$2");
   return v.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3");
 }
+
+export function editDemoBooking(id:string,changes:Partial<Booking>){
+ const now=new Date().toISOString();
+ localStorage.setItem(DEMO_KEY,JSON.stringify(demoBookings().map(b=>{
+   if(b.id!==id)return b;
+   const next={...b,...changes,updated_at:now};
+   if(changes.work_stage&&changes.work_stage!==b.work_stage){
+     if(changes.work_stage==="checked_in")next.checked_in_at=next.checked_in_at||now;
+     if(changes.work_stage==="working")next.work_started_at=next.work_started_at||now;
+     if(changes.work_stage==="ready")next.work_ready_at=next.work_ready_at||now;
+     if(changes.work_stage==="handed_over"){next.handed_over_at=now;next.status="completed";}
+     if(next.status==="pending")next.status="confirmed";
+   }
+   return next;
+ })));
+}
