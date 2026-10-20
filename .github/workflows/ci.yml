@@ -57,6 +57,7 @@ jobs:
           create table auth.users(id uuid primary key);
           create role anon;
           create role authenticated;
+          create role service_role;
           create function auth.uid() returns uuid language sql stable as $$select null::uuid$$;
           SQL
       - name: Validate schema and booking transaction
@@ -64,6 +65,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020000000_initial_meca.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020080000_booking_integrity.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020180000_customer_management.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020195000_kakao_notification_outbox.sql
           psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase2-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase3-smoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase4-smoke.sql
