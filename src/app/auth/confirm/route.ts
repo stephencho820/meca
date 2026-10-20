@@ -24,10 +24,14 @@ export async function GET(request: NextRequest) {
   const client = createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
       getAll() { return request.cookies.getAll(); },
-      setAll(cookies) {
+      setAll(cookies: Array<{ name: string; value: string; options?: unknown }>) {
         cookies.forEach(({ name, value, options }) => {
           request.cookies.set(name, value);
-          response.cookies.set(name, value, options);
+          response.cookies.set({
+            name,
+            value,
+            ...(options && typeof options === "object" ? options : {})
+          });
         });
       }
     }
