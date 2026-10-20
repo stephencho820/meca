@@ -21,3 +21,47 @@
 .dash-shell{display:flex;min-height:100vh;background:#f7f9f7}.dash-sidebar{width:252px;flex-shrink:0;background:#fff;border-right:1px solid #e6ebe6;display:flex;flex-direction:column;padding:27px 16px}.dash-logo{padding:0 12px 30px}.dash-nav{display:grid;gap:4px}.dash-item{width:100%;border:0;background:none;text-align:left;display:flex;align-items:center;gap:13px;border-radius:11px;padding:13px 14px;font-size:14px;font-weight:700;color:#68766c}.dash-item:hover,.dash-item.active{background:#eaf6e1;color:#2f7440}.dash-side-bottom{margin-top:auto;border-top:1px solid #eef1ec;padding:20px 7px 0}.dash-main{flex:1;min-width:0}.dash-top{height:84px;background:#fff;border-bottom:1px solid #e5ece4;padding:0 38px;display:flex;justify-content:space-between;align-items:center}.dash-top small{color:#7f8c82}.dash-content{padding:34px 38px;max-width:1400px;margin:0 auto}.dash-h1{font-size:28px;letter-spacing:-.055em;margin:0 0 8px}.dash-sub{color:#8c988f;font-size:14px;margin:0}.dash-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:29px 0}.stat-card{border:1px solid #e6ebe6;background:#fff;padding:24px;border-radius:17px}.stat-card span{color:#758177;font-size:13px}.stat-card strong{display:block;font-size:31px;margin:16px 0 0;letter-spacing:-.06em}.stat-card small{color:#539666;font-size:12px}.dash-panel{background:#fff;border:1px solid #e7eee5;border-radius:17px;padding:23px;margin-top:20px}.dash-panel h3{margin:0 0 18px;font-size:18px}.pill{display:inline-flex;align-items:center;padding:5px 10px;border-radius:100px;font-size:11px;font-weight:800}.pill.confirmed{background:#eaf7e5;color:#3e8951}.pill.pending{background:#fff4d8;color:#a37821}.pill.cancelled{background:#f6e8e8;color:#a85656}.pill.completed{background:#e9edf9;color:#546ea3}.data-table{width:100%;border-collapse:collapse;min-width:620px;font-size:13px}.data-table th{text-align:left;color:#9aa59c;font-weight:700;padding:15px 12px;border-bottom:1px solid #eff1ec}.data-table td{padding:15px 12px;border-bottom:1px solid #f0f2ee}.data-table tr:last-child td{border-bottom:0}.table-wrap{overflow-x:auto}.dash-empty{padding:30px;text-align:center;color:#859388;font-size:14px;line-height:1.9}.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid #eef1ea;border-left:1px solid #eef1ea}.cal-cell{min-height:110px;border-right:1px solid #eef1ea;border-bottom:1px solid #eef1ea;padding:9px;font-size:12px;color:#778376;background:#fff}.cal-cell.today{background:#f4faed}.cal-item{display:block;background:#e7f5da;border-left:3px solid #72bb52;color:#396b3c;border-radius:4px;padding:4px 5px;font-size:10px;line-height:1.5;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dash-tabbar{display:flex;gap:7px;flex-wrap:wrap;margin:24px 0}.dash-tab{background:#fff;border:1px solid #e0e9df;padding:9px 15px;border-radius:9px;color:#69766c;font-weight:700;font-size:13px}.dash-tab.active{background:#1b3124;color:white;border-color:#1b3124}.mobile-menu{display:none}
 @media(max-width:980px){.hero-grid{grid-template-columns:1fr;gap:45px}.hero-visual{min-height:400px}.hero h1{max-width:710px}.nav-links{display:none}.feature-grid,.pricing-grid,.steps{grid-template-columns:repeat(2,1fr)}.dash-cards{grid-template-columns:repeat(2,1fr)}.dash-sidebar{width:210px}.dash-content{padding:25px}.dash-top{padding:0 25px}}
 @media(max-width:650px){.mobile-menu{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;padding:5px}.container{padding:0 19px}.navbar{height:67px}.nav-inner{gap:12px}.nav-actions .btn-ghost{display:none}.nav-actions .btn{padding:9px 13px;min-height:39px;font-size:12px}.logo{font-size:24px}.logo-icon{width:29px;height:29px}.hero{padding:50px 0 40px}.hero h1{font-size:44px}.hero p{font-size:14px}.hero-input{align-items:stretch}.hero-input .btn{padding:9px 12px;font-size:11px}.hero-visual{min-height:370px}.preview-card{width:min(330px,94%);padding:17px}.preview-floating{font-size:11px}.preview-top{right:-5px;top:0}.preview-bottom{left:-4px}.section{padding:69px 0}.section-title{font-size:32px}.section-desc{font-size:14px}.feature-grid,.pricing-grid,.steps{grid-template-columns:1fr}.dark-band{padding:32px 25px;flex-direction:column;align-items:stretch}.dark-metric{min-width:0}.category-row{justify-content:center}.category-row>span{width:100%;text-align:center}.category-row strong{font-size:12px}.footer-row{flex-direction:column}.footer-bottom{margin-top:35px}.booking-page{padding:14px 7px 50px}.booking-inner{padding:23px}.auth-card{padding:26px}.dash-shell{display:block}.dash-sidebar{width:100%;flex-direction:row;overflow-x:auto;padding:10px 12px;position:sticky;top:0;z-index:20;border-bottom:1px solid #e3e9e2}.dash-logo,.dash-side-bottom{display:none}.dash-nav{display:flex;gap:5px}.dash-item{white-space:nowrap;font-size:12px;padding:10px 11px;gap:6px}.dash-item svg{width:15px}.dash-top{height:74px;padding:0 18px}.dash-content{padding:21px 14px}.dash-cards{gap:10px}.stat-card{padding:16px}.stat-card strong{font-size:27px}.calendar-grid{grid-template-columns:repeat(7,minmax(0,1fr))}.cal-cell{padding:3px;min-height:81px;font-size:9px}.cal-item{font-size:8px}.hide-mobile{display:none}}
+
+/* Phase 5: operations workspace, calendar and work orders */
+.schedule-panel{overflow:hidden}
+.schedule-toolbar{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+.schedule-controls{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.schedule-controls .btn{min-height:36px;padding:7px 10px}
+.schedule-switch{display:flex;padding:4px;background:#f1f5ed;border-radius:12px}
+.schedule-switch button{border:0;background:transparent;padding:8px 13px;border-radius:8px;font-size:13px;font-weight:750;color:#687568}
+.schedule-switch button.selected{background:#fff;color:#203d25;box-shadow:0 1px 6px #1b2d1b13}
+.schedule-overflow{overflow-x:auto;border:1px solid #e4eae1;border-radius:12px}
+.schedule-board{display:flex;min-height:770px;background:#fff}
+.schedule-board.is-week{min-width:1040px}
+.schedule-left{width:66px;flex:0 0 66px;border-right:1px solid #e7ede6}
+.schedule-day{position:relative;flex:1;min-width:0;border-right:1px solid #e8eee6}
+.schedule-board.is-week .schedule-day{min-width:138px}
+.schedule-day:last-child{border-right:0}
+.schedule-dayhead{height:53px;width:100%;background:#f6f9f3;border:0;border-bottom:1px solid #e2e9df;font-size:12px;font-weight:800;color:#3e5344;display:flex;align-items:center;justify-content:center}
+.schedule-dayhead.current{background:#e9f6df;color:#306b3a}
+.schedule-time-axis,.schedule-track{position:relative;height:720px}
+.schedule-hour{position:absolute;right:10px;transform:translateY(-50%);font-size:11px;color:#829087}
+.schedule-line{position:absolute;left:0;right:0;border-top:1px dashed #e9eee7;pointer-events:none}
+.schedule-event{position:absolute;z-index:1;overflow:hidden;display:flex;flex-direction:column;gap:3px;align-items:flex-start;text-align:left;background:#e5f5d8;border:1px solid #b9df9c;border-radius:8px;color:#2c4730;padding:7px;min-width:0;font-size:12px}
+.schedule-event:hover{border-color:#60a76d;background:#d7f1c3;z-index:3}
+.schedule-event.pending{background:#fff5db;border-color:#e6d18b;color:#755e20}
+.schedule-event.completed{background:#ecf2ee;border-color:#ccd8ce;color:#536758}
+.schedule-event strong,.schedule-event span,.schedule-event small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.schedule-event small{font-size:10px;opacity:.8}
+.schedule-empty{position:absolute;top:35px;left:15px;font-size:12px;color:#a2afa4}
+.schedule-month .schedule-month-cell{width:100%;display:block;text-align:left;border:1px solid #edf1ed;min-height:104px;cursor:pointer;background:#fff}
+.schedule-month .schedule-month-cell:hover{background:#f4faed}
+.schedule-month .schedule-month-cell:disabled{background:#fafbf9;cursor:default}
+.schedule-month-heading{text-align:center;padding:14px 6px;font-size:12px;background:#f5f7f3;font-weight:800}
+.booking-edit-modal{width:min(750px,96vw);max-height:90vh;overflow:auto}
+.booking-edit-modal .booking-inner{padding-top:30px}
+.workflow-section{border-top:1px solid #e9ede7;border-bottom:1px solid #e9ede7;margin:22px 0;padding:24px 0}
+.workflow-steps{display:flex;gap:5px;justify-content:space-between}
+.workflow-step{flex:1;display:flex;align-items:center;flex-direction:column;gap:7px;text-align:center;font-size:11px;color:#97a298}
+.workflow-step.done{color:#35734b;font-weight:750}
+.workflow-dot{width:30px;height:30px;border-radius:50%;background:#f0f3ef;border:1px solid #dae2d9;display:grid;place-items:center;font-size:12px}
+.workflow-step.done .workflow-dot{background:#c5f48a;color:#26442b;border-color:#a3d779}
+.booking-edit-form{padding-bottom:10px}
+.ops-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.workflow-status{display:inline-block;font-size:11px;padding:4px 8px;border-radius:30px;background:#edf5e7;color:#42694b;font-weight:700}
+@media(max-width:610px){.ops-form-grid{grid-template-columns:1fr}.workflow-step{font-size:9px}.workflow-dot{width:24px;height:24px}.schedule-toolbar{gap:10px}.booking-edit-modal{width:100vw;max-height:98vh;border-radius:14px 14px 0 0;margin-top:auto}.schedule-month .schedule-month-cell{min-height:77px;padding:6px 3px}.schedule-month .cal-item{font-size:9px}}
