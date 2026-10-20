@@ -3,11 +3,13 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Activity, ArrowRight, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Copy, ExternalLink, LayoutDashboard, LogOut, Plus, Search, Settings, Users, Wrench, X } from "lucide-react";
-import { addDemoBooking, demoBookings, demoServices, demoShop, kstDate, money, updateDemoBooking } from "@/lib/demo";
+import { addDemoBooking, demoBookings, demoServices, demoShop, editDemoBooking, kstDate, money, updateDemoBooking } from "@/lib/demo";
 import { browserDb } from "@/lib/supabase";
 import type { Booking, Service, Shop } from "@/lib/types";
-type Tab="overview"|"calendar"|"bookings"|"customers"|"services"|"notifications"|"settings";
-const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
+import ScheduleBoard from "@/components/ScheduleBoard";
+import BookingOperations from "@/components/BookingOperations";
+type Tab="overview"|"calendar"|"workflow"|"bookings"|"customers"|"services"|"notifications"|"settings";
+const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"workflow",label:"작업 현황",icon:Wrench},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
 const statusText:Record<Booking["status"],string>={pending:"승인 대기",confirmed:"예약 확정",completed:"정비 완료",cancelled:"취소"};
 const koDate=(date:string)=>new Date(date).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
 function Dashboard(){
@@ -18,6 +20,7 @@ function Dashboard(){
   const [notificationsLoading,setNotificationsLoading]=useState(false);
 
   const [tab,setTab]=useState<Tab>("overview"),[shop,setShop]=useState<Shop|null>(isDemo?demoShop:null),[bookings,setBookings]=useState<Booking[]>([]),[services,setServices]=useState<Service[]>(isDemo?demoServices:[]),[loading,setLoading]=useState(!isDemo),[error,setError]=useState(""),[notice,setNotice]=useState("");
+  const [selectedBookingId,setSelectedBookingId]=useState<string|null>(null);
   const [filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[month,setMonth]=useState(()=>{const d=kstDate(new Date());return d.slice(0,7);}),[showAdd,setShowAdd]=useState(false),[addForm,setAddForm]=useState({name:"",phone:"",vehicle:"",service:demoServices[0].id,day:kstDate(new Date()),time:"10:00"});
   type Hours = {shop_id:string;day_of_week:number;open_time:string;close_time:string;is_closed:boolean};
   type Blocked = {shop_id:string;blocked_date:string;reason:string|null};
@@ -123,10 +126,43 @@ function Dashboard(){
     return Array.from(map.values()).sort((a,b)=>b.last.localeCompare(a.last));
   },[bookings]);
   const copy=async()=>{if(!shop)return;const url=window.location.origin+"/book/"+shop.slug;try{await navigator.clipboard.writeText(url);setNotice("예약 링크를 복사했습니다.");}catch{setNotice(url);}setTimeout(()=>setNotice(""),3500);};
+  const saveBooking=async(patch:Partial<Booking>)=>{
+    if(!shop||!selectedBookingId)throw new Error("예약을 선택해 주세요.");
+    const old=bookings.find(b=>b.id===selectedBookingId);
+    if(!old)throw new Error("예약을 찾을 수 없습니다.");
+    if(isDemo){
+      if(patch.starts_at&&patch.ends_at&&old.status!=="completed"&&old.status!=="cancelled"){
+        const overlapping=demoBookings().filter(b=>b.id!==old.id&&b.status!=="cancelled"&&b.status!=="completed"&&
+          new Date(b.starts_at)<new Date(patch.ends_at!)&&new Date(b.ends_at)>new Date(patch.starts_at!));
+        const boundaries=[new Date(patch.starts_at).getTime(),...overlapping.map(b=>new Date(b.starts_at).getTime()).filter(t=>t>new Date(patch.starts_at!).getTime()&&t<new Date(patch.ends_at!).getTime())];
+        if(boundaries.some(t=>overlapping.filter(b=>new Date(b.starts_at).getTime()<=t&&new Date(b.ends_at).getTime()>t).length>=(shop.slot_capacity||1))){
+          throw new Error("다른 예약과 시간이 겹칩니다. 시간을 변경해 주세요.");
+        }
+      }
+      editDemoBooking(old.id,patch);setBookings(demoBookings());
+      setNotice("예약과 정비 기록을 저장했습니다.");return;
+    }
+    if(!db)throw new Error("예약 서버 연결이 필요합니다.");
+    const {error:saveError}=await db.from("bookings").update(patch)
+      .eq("id",old.id).eq("shop_id",shop.id).select("id").single();
+    if(saveError){
+      if(saveError.message.includes("SLOT_UNAVAILABLE"))throw new Error("해당 시간에는 예약이 불가능합니다. 영업시간이나 다른 예약을 확인해 주세요.");
+      if(saveError.message.includes("INVALID_BOOKING"))throw new Error("정비 시간과 서비스 항목을 확인해 주세요.");
+      if(saveError.message.includes("WORKFLOW_CLOSED")||saveError.message.includes("BOOKING_CLOSED"))throw new Error("완료 또는 취소된 예약은 이 항목을 변경할 수 없습니다.");
+      throw new Error("변경 사항을 저장하지 못했습니다. 다시 시도해 주세요.");
+    }
+    await syncBookings(shop);
+    if(patch.starts_at||patch.work_stage)void dispatchFor(old.id);
+    setNotice("예약과 정비 기록을 저장했습니다.");
+  };
+  const workStages=[["scheduled","예약"],["checked_in","차량 입고"],["working","정비 중"],["ready","출고 대기"],["handed_over","출고"]] as const;
   const setStatus=async(b:Booking,status:Booking["status"])=>{
-    if(isDemo){updateDemoBooking(b.id,status);setBookings(demoBookings());return;}
+    if(b.status==="completed"||b.status==="cancelled"){setError("종료된 예약의 상태는 직접 변경할 수 없습니다.");return;}
+    if(isDemo){if(status==="completed")editDemoBooking(b.id,{work_stage:"handed_over",status:"completed"});
+      else updateDemoBooking(b.id,status);setBookings(demoBookings());return;}
     if(!db||!shop)return;setError("");
-    const {error}=await db.from("bookings").update({status}).eq("id",b.id).eq("shop_id",shop.id);
+    const payload=status==="completed"?{status,work_stage:"handed_over"}:{status};
+    const {error}=await db.from("bookings").update(payload).eq("id",b.id).eq("shop_id",shop.id);
     if(error){setError(error.message.includes("SLOT_UNAVAILABLE")?"이미 다른 예약이 있어 다시 확정할 수 없습니다.":"예약 상태 변경에 실패했습니다.");return;}
     await syncBookings(shop);
     void dispatchFor(b.id);
@@ -198,9 +234,32 @@ function Dashboard(){
       <main className="dash-content">
         <div className="row-between"><div><span className="eyebrow">MECA WORKSPACE</span><h1 className="dash-h1">{tabs.find(t=>t.id===tab)?.label}</h1><p className="dash-sub">{isDemo?"이 화면은 체험용으로, 데모 예약은 현재 브라우저에만 저장됩니다.":"우리 매장의 예약과 고객을 관리하세요."}</p></div>{(["overview","calendar","bookings"].includes(tab))&&<button className="btn btn-dark" onClick={()=>{setAddForm({...addForm,service:services[0]?.id||""});setShowAdd(true);}}><Plus size={17}/> 예약 추가</button>}</div>
         {notice&&<div className="success" style={{marginTop:20}}>{notice}</div>}{error&&<div className="error" style={{marginTop:20}}>{error}</div>}
-        {tab==="overview"&&<><div className="dash-cards">{[{label:"오늘의 예약",value:todayBookings.length,extra:"오늘 예정된 방문"},{label:"확정 대기",value:pending.length,extra:"승인이 필요한 예약"},{label:"전체 고객",value:customers.length,extra:"예약한 고객 수"},{label:"정비 완료",value:done.length,extra:"누적 완료 건수"}].map(k=><div className="stat-card" key={k.label}><span>{k.label}</span><strong>{k.value}<small style={{fontSize:14,color:"#93a096"}}> 건</small></strong><small>{k.extra}</small></div>)}</div><div className="dash-panel"><div className="row-between"><h3>다가오는 예약</h3><button className="btn btn-ghost" onClick={()=>setTab("bookings")}>전체 보기 <ArrowRight size={15}/></button></div><BookingTable bookings={bookings.filter(b=>b.status!=="cancelled"&&b.status!=="completed"&&new Date(b.starts_at)>=new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,7)} setStatus={setStatus}/></div><div className="dash-panel"><h3>빠른 시작</h3><div style={{display:"flex",gap:12,flexWrap:"wrap"}}><button className="btn btn-outline" onClick={copy}><Copy size={16}/> 예약 링크 공유하기</button><button className="btn btn-outline" onClick={()=>setTab("services")}><Wrench size={16}/> 정비 항목 설정하기</button><button className="btn btn-outline" onClick={()=>setTab("settings")}><Settings size={16}/> 매장 정보 입력하기</button></div></div></>}
-        {tab==="calendar"&&<div className="dash-panel"><div className="row-between" style={{marginBottom:18}}><h3 style={{margin:0}}>{month.replace("-","년 ")}월 예약</h3><div className="row-between"><button className="btn btn-outline" aria-label="이전 달" onClick={()=>navigateMonth(-1)}><ChevronLeft size={17}/></button><button className="btn btn-outline" onClick={()=>setMonth(kstDate(new Date()).slice(0,7))}>이번 달</button><button className="btn btn-outline" aria-label="다음 달" onClick={()=>navigateMonth(1)}><ChevronRight size={17}/></button></div></div><div className="calendar-grid">{["일","월","화","수","목","금","토"].map(d=><div key={d} style={{textAlign:"center",padding:12,fontSize:12,fontWeight:800,borderRight:"1px solid #eee",background:"#f8faf6"}}>{d}</div>)}{calendarDays.map((d,i)=>{const day=d?month+"-"+String(d).padStart(2,"0"):"";const items=bookings.filter(b=>d&&kstDate(new Date(b.starts_at))===day&&b.status!=="cancelled");return <div key={i} className={"cal-cell"+(day===today?" today":"")}><strong>{d||""}</strong>{items.slice(0,3).map(b=><div key={b.id} className="cal-item" title={b.customer_name+" · "+b.service_name}>{new Date(b.starts_at).toLocaleTimeString("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",hour12:false})} {b.customer_name}</div>)}{items.length>3&&<div style={{fontSize:10}}>+{items.length-3}건</div>}</div>;})}</div></div>}
-        {tab==="bookings"&&<div className="dash-panel"><div className="row-between" style={{flexWrap:"wrap"}}><h3>예약 목록 · {filtered.length}건</h3><div className="row-between" style={{gap:7}}><Search size={17} color="#809088"/><input className="field" style={{minHeight:36,width:180}} value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명 / 연락처 / 정비"/></div></div><div className="dash-tabbar">{[["all","전체"],["pending","승인 대기"],["confirmed","확정"],["completed","완료"],["cancelled","취소"]].map(([id,label])=><button key={id} className={"dash-tab"+(filter===id?" active":"")} onClick={()=>setFilter(id)}>{label}</button>)}</div><BookingTable bookings={filtered} setStatus={setStatus}/></div>}
+        {tab==="overview"&&<><div className="dash-cards">{[{label:"오늘의 예약",value:todayBookings.length,extra:"오늘 예정된 방문"},{label:"확정 대기",value:pending.length,extra:"승인이 필요한 예약"},{label:"전체 고객",value:customers.length,extra:"예약한 고객 수"},{label:"정비 완료",value:done.length,extra:"누적 완료 건수"}].map(k=><div className="stat-card" key={k.label}><span>{k.label}</span><strong>{k.value}<small style={{fontSize:14,color:"#93a096"}}> 건</small></strong><small>{k.extra}</small></div>)}</div><div className="dash-panel"><div className="row-between"><h3>다가오는 예약</h3><button className="btn btn-ghost" onClick={()=>setTab("bookings")}>전체 보기 <ArrowRight size={15}/></button></div><BookingTable onSelect={b=>setSelectedBookingId(b.id)} bookings={bookings.filter(b=>b.status!=="cancelled"&&b.status!=="completed"&&new Date(b.starts_at)>=new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,7)} setStatus={setStatus}/></div><div className="dash-panel"><h3>빠른 시작</h3><div style={{display:"flex",gap:12,flexWrap:"wrap"}}><button className="btn btn-outline" onClick={copy}><Copy size={16}/> 예약 링크 공유하기</button><button className="btn btn-outline" onClick={()=>setTab("services")}><Wrench size={16}/> 정비 항목 설정하기</button><button className="btn btn-outline" onClick={()=>setTab("settings")}><Settings size={16}/> 매장 정보 입력하기</button></div></div></>}
+        {tab==="calendar"&&<ScheduleBoard bookings={bookings} onSelect={b=>setSelectedBookingId(b.id)}/>}
+        {tab==="workflow"&&<div className="dash-panel">
+          <div className="row-between" style={{flexWrap:"wrap",gap:12}}>
+            <div><h3>정비 작업 현황</h3><p className="booking-help">접수부터 차량 출고까지 작업별 진행 상황을 확인합니다. 카드를 선택하면 정비 기록과 진행 단계를 변경할 수 있어요.</p></div>
+            <button className="btn btn-outline" type="button" onClick={()=>{if(shop)void syncBookings(shop);}}>새로고침</button>
+          </div>
+          <div className="workflow-board">
+            {workStages.map(([code,label])=>{
+              const jobs=bookings.filter(b=>(b.work_stage||"scheduled")===code && b.status!=="cancelled")
+                .sort((a,b)=>a.starts_at.localeCompare(b.starts_at));
+              return <div key={code} className="workflow-column">
+                <div className="row-between"><strong>{label}</strong><span className="workflow-count">{jobs.length}</span></div>
+                <div className="workflow-list">
+                  {jobs.slice(0,80).map(b=><button key={b.id} className="workflow-card" type="button" onClick={()=>setSelectedBookingId(b.id)}>
+                    <span>{koDate(b.starts_at)}</span>
+                    <strong>{b.customer_name}</strong>
+                    <small>{b.vehicle_model||"차량 미입력"}</small><small>{b.service_name}</small>
+                  </button>)}
+                  {!jobs.length&&<div className="workflow-placeholder">예약 없음</div>}
+                </div>
+              </div>;
+            })}
+          </div>
+        </div>}
+        {tab==="bookings"&&<div className="dash-panel"><div className="row-between" style={{flexWrap:"wrap"}}><h3>예약 목록 · {filtered.length}건</h3><div className="row-between" style={{gap:7}}><Search size={17} color="#809088"/><input className="field" style={{minHeight:36,width:180}} value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명 / 연락처 / 정비"/></div></div><div className="dash-tabbar">{[["all","전체"],["pending","승인 대기"],["confirmed","확정"],["completed","완료"],["cancelled","취소"]].map(([id,label])=><button key={id} className={"dash-tab"+(filter===id?" active":"")} onClick={()=>setFilter(id)}>{label}</button>)}</div><BookingTable bookings={filtered} setStatus={setStatus} onSelect={b=>setSelectedBookingId(b.id)}/></div>}
         {tab==="customers"&&<div className="dash-panel"><h3>고객 목록 · {customers.length}명</h3><div className="table-wrap">{customers.length?<table className="data-table"><thead><tr><th>이름</th><th>연락처</th><th>차량</th><th>예약 횟수</th><th>최근 예약</th></tr></thead><tbody>{customers.map(c=><tr key={c.phone}><td><strong>{c.name}</strong></td><td>{c.phone}</td><td>{c.vehicle||"—"}</td><td>{c.count}회</td><td>{koDate(c.last)}</td></tr>)}</tbody></table>:<div className="dash-empty">아직 고객이 없습니다. 첫 예약이 접수되면 이곳에서 확인할 수 있어요.</div>}</div></div>}
         {tab==="notifications"&&<div className="dash-panel">
           <div className="row-between" style={{alignItems:"flex-start",flexWrap:"wrap"}}>
@@ -236,12 +295,15 @@ function Dashboard(){
           <div style={{marginTop:32,borderTop:"1px solid #eef1ea",paddingTop:25}}><h3>휴무일 차단</h3><p className="booking-help">공휴일, 휴가 등 예약을 받지 않을 날짜를 지정하세요.</p><div className="row-between" style={{justifyContent:"flex-start",flexWrap:"wrap"}}><input aria-label="차단할 날짜" className="field" style={{width:200}} type="date" min={today} value={newBlocked} onChange={e=>setNewBlocked(e.target.value)}/><button type="button" className="btn btn-outline" disabled={!newBlocked} onClick={addBlocked}><Plus size={15}/> 추가</button></div><div style={{display:"grid",gap:9,marginTop:17}}>{blocked.map(b=><div className="row-between" style={{background:"#f8faf6",padding:"10px 15px",borderRadius:9}} key={b.blocked_date}><span style={{fontSize:13}}>{b.blocked_date}</span><button className="btn btn-ghost" type="button" onClick={()=>removeBlocked(b.blocked_date)} aria-label="휴무일 제거"><X size={16}/></button></div>)}{blocked.length===0&&<span className="hint">현재 지정된 휴무일이 없습니다.</span>}</div></div>
         </div>}
       </main></div>
+    {selectedBookingId&&bookings.some(b=>b.id===selectedBookingId)&&
+      <BookingOperations key={selectedBookingId} booking={bookings.find(b=>b.id===selectedBookingId)!}
+        services={services} busy={saving} onClose={()=>setSelectedBookingId(null)} onSave={saveBooking}/>}
     {showAdd&&<div className="modal-backdrop" onClick={()=>setShowAdd(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="닫기" onClick={()=>setShowAdd(false)}><X size={17}/></button><div className="booking-inner"><h2>전화·방문 예약 추가</h2><p className="booking-help">직접 추가한 예약은 캘린더에 표시됩니다.</p><form onSubmit={addManual}><div className="field-group"><label className="field-label">고객 이름</label><input className="field" required maxLength={80} value={addForm.name} onChange={e=>setAddForm({...addForm,name:e.target.value})}/></div><div className="field-group"><label className="field-label">휴대전화</label><input type="tel" className="field" required value={addForm.phone} onChange={e=>setAddForm({...addForm,phone:e.target.value})}/></div><div className="field-group"><label className="field-label">차량 모델</label><input className="field" value={addForm.vehicle} onChange={e=>setAddForm({...addForm,vehicle:e.target.value})}/></div><div className="field-group"><label className="field-label">정비 항목</label><select className="field" required value={addForm.service} onChange={e=>setAddForm({...addForm,service:e.target.value})}>{services.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><div className="field-group"><label className="field-label">날짜</label><input type="date" className="field" required value={addForm.day} onChange={e=>setAddForm({...addForm,day:e.target.value})}/></div><div className="field-group"><label className="field-label">시간</label><input type="time" className="field" required value={addForm.time} onChange={e=>setAddForm({...addForm,time:e.target.value})}/></div></div><button disabled={saving} className="btn btn-dark btn-wide" type="submit">예약 추가</button></form></div></div></div>}
     {editService&&<div className="modal-backdrop" onClick={()=>setEditService(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="닫기" onClick={()=>setEditService(null)}><X size={17}/></button><form className="booking-inner" onSubmit={saveService}><h2>{editService.id.startsWith("new-")?"정비 항목 추가":"정비 항목 수정"}</h2><div className="field-group"><label className="field-label">서비스명</label><input className="field" required maxLength={80} value={editService.name} onChange={e=>setEditService({...editService,name:e.target.value})}/></div><div className="field-group"><label className="field-label">설명</label><input className="field" maxLength={200} value={editService.description||""} onChange={e=>setEditService({...editService,description:e.target.value})}/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div className="field-group"><label className="field-label">소요 시간 (분)</label><input className="field" type="number" min={30} max={480} step={10} required value={editService.duration_minutes} onChange={e=>setEditService({...editService,duration_minutes:Number(e.target.value)})}/></div><div className="field-group"><label className="field-label">시작 가격 (원)</label><input className="field" type="number" min={0} value={editService.price_from??""} onChange={e=>setEditService({...editService,price_from:e.target.value===""?null:Number(e.target.value)})}/></div></div><div className="field-group"><label className="field-label">아이콘 (이모지)</label><input className="field" value={editService.icon} onChange={e=>setEditService({...editService,icon:e.target.value})}/></div><label className="checkbox" style={{marginBottom:21}}><input type="checkbox" checked={Boolean(editService.approval_required)} onChange={e=>setEditService({...editService,approval_required:e.target.checked})}/> 관리자 승인 후 예약 확정</label><button disabled={saving} className="btn btn-dark btn-wide" type="submit">{saving?"저장 중...":"저장하기"}</button></form></div></div>}
   </div>;
 }
-function BookingTable({bookings,setStatus}:{bookings:Booking[],setStatus:(b:Booking,status:Booking["status"])=>void}){
+function BookingTable({bookings,setStatus,onSelect}:{bookings:Booking[],setStatus:(b:Booking,status:Booking["status"])=>void,onSelect:(b:Booking)=>void}){
   if(bookings.length===0)return <div className="dash-empty">표시할 예약이 없습니다. 예약 페이지에서 테스트 예약을 생성해 보세요.</div>;
-  return <div className="table-wrap"><table className="data-table"><thead><tr><th>예약 일시</th><th>고객</th><th>정비 항목</th><th>상태</th><th>관리</th></tr></thead><tbody>{bookings.map(b=><tr key={b.id}><td><strong>{koDate(b.starts_at)}</strong></td><td>{b.customer_name}<br/><small className="muted">{b.customer_phone}</small></td><td>{b.service_name}<br/><small className="muted">{b.vehicle_model||"—"}</small></td><td><span className={"pill "+b.status}>{statusText[b.status]}</span></td><td><select aria-label="예약 상태 변경" className="field" style={{padding:"7px",minHeight:34,width:112,fontSize:11}} value={b.status} onChange={e=>setStatus(b,e.target.value as Booking["status"])}>{Object.entries(statusText).map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table className="data-table"><thead><tr><th>예약 일시</th><th>고객</th><th>정비 항목</th><th>예약 상태</th><th>작업 상태</th><th>관리</th></tr></thead><tbody>{bookings.map(b=><tr key={b.id}><td><strong>{koDate(b.starts_at)}</strong></td><td>{b.customer_name}<br/><small className="muted">{b.customer_phone}</small></td><td>{b.service_name}<br/><small className="muted">{b.vehicle_model||"—"}</small></td><td><span className={"pill "+b.status}>{statusText[b.status]}</span></td><td><span className="workflow-status">{({scheduled:"예약",checked_in:"입고",working:"정비 중",ready:"출고 대기",handed_over:"출고"} as Record<string,string>)[b.work_stage||"scheduled"]}</span></td><td><div style={{display:"flex",gap:5,alignItems:"center"}}><button type="button" className="btn btn-outline" style={{padding:"6px 9px",minHeight:34,fontSize:11}} onClick={()=>onSelect(b)}>상세·수정</button><select disabled={b.status==="completed"||b.status==="cancelled"} aria-label="예약 상태 변경" className="field" style={{padding:"7px",minHeight:34,width:112,fontSize:11}} value={b.status} onChange={e=>setStatus(b,e.target.value as Booking["status"])}>{Object.entries(statusText).map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></div></td></tr>)}</tbody></table></div>;
 }
 export default function DashboardPage(){return <Suspense fallback={<div className="auth-layout">로딩 중...</div>}><Dashboard/></Suspense>;}
