@@ -80,6 +80,22 @@ npm run dev
 - 기존 구버전 예약은 관리용 토큰이 없어 정비소 관리자 화면에서 관리합니다.
 - 예약 관리 링크는 사용자가 안전하게 보관해야 합니다. 문자/이메일 자동 발송은 아직 연결되지 않았습니다.
 
+## 카카오 알림톡 (Phase 4)
+
+- **SOLAPI** API를 사용하는 서버측 어댑터를 추가했습니다. 카카오 비즈니스 채널 및 심사 통과한 알림톡 템플릿이 필요합니다.
+- 예약 이벤트 `requested`, `confirmed`, `rescheduled`, `cancelled`는 DB 트리거가 생성하며, `notification_outbox` 테이블에 개인정보를 중복 저장하지 않습니다.
+- 발송은 `MECA_NOTIFICATIONS_ENABLED=true`로 명시적으로 활성화하고 모든 비밀 키/템플릿을 등록하기 전에는 **절대로 진행되지 않습니다**.
+- 예약 시도와 고객 변경·취소 후에는 즉시 처리를 시도하고, 관리자 변경/수기 예약도 처리합니다. 전송 실패 시 예약 자체는 취소되지 않습니다.
+- 방문 전날 09시(KST) 부근에는 Vercel Hobby 지원 범위인 **하루 1회** cron이 리마인더를 생성·처리합니다. Hobby Cron은 동일 시각 실행을 보장하지 않아 시간 안내는 대략적입니다.
+- 발송 요청에는 광고성 문구를 포함하지 않으며 `disableSms: true`로 설정해 **자동 SMS 대체 발송을 차단**합니다.
+- 발송 오류나 네트워크 타임아웃은 불확실한 경우 재발송하지 않아 과금/중복 발송을 방지합니다. `submitted`는 SOLAPI가 **접수**한 상태이지 수신자에게 **전달 완료**된 것을 의미하지 않습니다.
+- 관리자 `알림 내역` 탭에서 발송 대기·접수·건너뜀·실패 기록을 조회합니다.
+- SOLAPI 템플릿 5개에서 다음 변수를 정확히 사용해야 합니다: `#{매장명}`, `#{고객명}`, `#{예약일시}`, `#{서비스명}`, `#{예약번호}`. 각 템플릿에 필요한 변수만 포함하는 방향으로 실제 승인 내용과 맞춘 후 활성화해야 합니다.
+- MECA 전용 Vercel 프로젝트의 서버 환경변수: `SUPABASE_SERVICE_ROLE_KEY`, `SOLAPI_API_KEY`, `SOLAPI_API_SECRET`, `SOLAPI_PF_ID`, `SOLAPI_TEMPLATE_REQUESTED`, `SOLAPI_TEMPLATE_CONFIRMED`, `SOLAPI_TEMPLATE_RESCHEDULED`, `SOLAPI_TEMPLATE_CANCELLED`, `SOLAPI_TEMPLATE_REMINDER`, `MECA_NOTIFICATIONS_ENABLED=true`, `CRON_SECRET`.
+- **절대** 서비스 롤 키와 SOLAPI 비밀값을 `NEXT_PUBLIC_`에 넣지 마세요. SOLAPI 자격증명은 Vercel 서버에만 넣고 GitHub에는 저장하지 않습니다.
+- SaaS 다중 업체 발송 시에는 업체별 채널 발신인 정책과 템플릿을 따로 관리하도록 확장해야 합니다. 현재는 MECA 중앙 발송 채널 한 곳을 가정합니다.
+- 예약 관리 링크는 알림 메시지에 담지 않습니다(토큰은 서버에 해시로만 저장). 고객은 예약 접수 화면의 링크를 보관합니다.
+
 ## 알려진 범위와 후속 개발
 
 | 항목 | 현재 상태 |
