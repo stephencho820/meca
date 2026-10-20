@@ -23,3 +23,41 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Bootstrap Supabase auth stubs
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create schema auth;
+          create table auth.users(id uuid primary key);
+          create role anon;
+          create role authenticated;
+          create function auth.uid() returns uuid language sql stable as $$select null::uuid$$;
+          SQL
+      - name: Validate schema and booking transaction
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020000000_initial_meca.sql
+          psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
