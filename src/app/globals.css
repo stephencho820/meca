@@ -77,3 +77,50 @@
 .workflow-card>span{font-size:10px;color:#819381}.workflow-card>strong{font-size:14px}.workflow-card>small{font-size:11px;color:#708073}
 .workflow-placeholder{color:#abb7a9;font-size:12px;padding:19px 5px;text-align:center}
 @media(max-width:1100px){.workflow-board{display:flex}.workflow-column{flex:0 0 210px}}
+
+/* Phase 6 customer and vehicle CRM */
+.crm-panel{min-height:590px}
+.crm-heading{align-items:flex-start;gap:15px;flex-wrap:wrap;margin-bottom:22px}
+.crm-layout{display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:18px}
+.crm-list{background:#f8faf6;border:1px solid #e6ede2;border-radius:14px;overflow:hidden}
+.crm-search{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid #e6ede2;color:#758878}
+.crm-search input{background:white;border:1px solid #dce7d7;padding:11px 8px;min-width:0;width:100%;border-radius:8px;font-size:12px;outline:none}
+.crm-search input:focus{border-color:#82b863}
+.crm-list-scroll{max-height:720px;overflow:auto;padding:8px}
+.crm-person{display:flex;align-items:center;text-align:left;width:100%;gap:10px;border:1px solid transparent;border-radius:11px;padding:11px 9px;background:transparent;color:#304334}
+.crm-person.active{background:#edf8e5;border-color:#c2e0a7}
+.crm-person:hover{background:#eff7e8}
+.crm-avatar{width:37px;height:37px;flex:0 0 37px;display:grid;place-items:center;background:#e7ede4;border-radius:11px;color:#59765e}
+.crm-person-info{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px}
+.crm-person-info strong{font-size:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.crm-person-info small{font-size:11px;color:#7a8a7b}
+.crm-detail{min-width:0;padding:12px 5px 18px}
+.crm-blank{min-height:330px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#809083}
+.crm-blank h3{color:#3c5540}
+.crm-blank p{font-size:13px}
+.crm-person-header{padding-bottom:19px;border-bottom:1px solid #e7ebe4}
+.crm-note{padding:14px 16px;border-radius:10px;background:#f6f9f1;border:1px solid #e2ecdb;font-size:12px;margin:16px 0;line-height:1.8}
+.crm-note p{white-space:pre-wrap;margin:6px 0 0;color:#607361}
+.crm-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:17px}
+.crm-stats>div{background:#f7faf5;border:1px solid #e9eee5;padding:14px;border-radius:11px;display:flex;flex-direction:column;gap:7px}
+.crm-stats span{color:#78887a;font-size:11px}
+.crm-stats strong{font-size:23px;color:#304e33}
+.crm-stats small{font-size:12px;margin-left:4px;color:#899988}
+.crm-cars{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px}
+.crm-car{border:1px solid #e1eadb;border-radius:12px;background:white;position:relative}
+.crm-car.selected{border-color:#8fbc6b;background:#f6fbed}
+.crm-car>button:first-child{border:0;background:transparent;text-align:left;width:100%;padding:16px;min-height:110px;display:flex;align-items:flex-start;flex-direction:column;gap:5px;color:#36543b}
+.crm-car>button:first-child strong{color:#263e2c;font-size:14px}
+.crm-car>button:first-child small{color:#778579;font-size:11px}
+.crm-edit-link{border:0;background:none;color:#577e53;font-size:12px;padding:4px 13px 12px;text-decoration:underline}
+.crm-no-car{font-size:12px;background:#f8faf5;padding:18px;border:1px dashed #d9e5d5;border-radius:10px;color:#8a9988;grid-column:1/-1}
+.crm-history{border:1px solid #e8eee4;border-radius:12px;overflow:hidden}
+.crm-history-row{padding:13px 15px;display:flex;gap:12px;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #edf2eb}
+.crm-history-row:last-child{border-bottom:0}
+.crm-history-row>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.crm-history-row strong{font-size:13px;color:#3d5640}
+.crm-history-row span{font-size:11px;color:#839084}
+.crm-history-row .pill{font-size:11px;flex:0 0 auto}
+.crm-modal{max-height:93vh;overflow:auto}
+@media(max-width:900px){.crm-layout{grid-template-columns:1fr}.crm-list-scroll{max-height:260px}.crm-detail{padding:12px 0}}
+@media(max-width:550px){.crm-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.crm-stats>div{padding:10px}.crm-cars{grid-template-columns:1fr 1fr}}

@@ -8,6 +8,7 @@ import { browserDb } from "@/lib/supabase";
 import type { Booking, Service, Shop } from "@/lib/types";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BookingOperations from "@/components/BookingOperations";
+import CustomerCRM from "@/components/CustomerCRM";
 type Tab="overview"|"calendar"|"workflow"|"bookings"|"customers"|"services"|"notifications"|"settings";
 const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"workflow",label:"작업 현황",icon:Wrench},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
 const statusText:Record<Booking["status"],string>={pending:"승인 대기",confirmed:"예약 확정",completed:"정비 완료",cancelled:"취소"};
@@ -260,7 +261,7 @@ function Dashboard(){
           </div>
         </div>}
         {tab==="bookings"&&<div className="dash-panel"><div className="row-between" style={{flexWrap:"wrap"}}><h3>예약 목록 · {filtered.length}건</h3><div className="row-between" style={{gap:7}}><Search size={17} color="#809088"/><input className="field" style={{minHeight:36,width:180}} value={query} onChange={e=>setQuery(e.target.value)} placeholder="고객명 / 연락처 / 정비"/></div></div><div className="dash-tabbar">{[["all","전체"],["pending","승인 대기"],["confirmed","확정"],["completed","완료"],["cancelled","취소"]].map(([id,label])=><button key={id} className={"dash-tab"+(filter===id?" active":"")} onClick={()=>setFilter(id)}>{label}</button>)}</div><BookingTable bookings={filtered} setStatus={setStatus} onSelect={b=>setSelectedBookingId(b.id)}/></div>}
-        {tab==="customers"&&<div className="dash-panel"><h3>고객 목록 · {customers.length}명</h3><div className="table-wrap">{customers.length?<table className="data-table"><thead><tr><th>이름</th><th>연락처</th><th>차량</th><th>예약 횟수</th><th>최근 예약</th></tr></thead><tbody>{customers.map(c=><tr key={c.phone}><td><strong>{c.name}</strong></td><td>{c.phone}</td><td>{c.vehicle||"—"}</td><td>{c.count}회</td><td>{koDate(c.last)}</td></tr>)}</tbody></table>:<div className="dash-empty">아직 고객이 없습니다. 첫 예약이 접수되면 이곳에서 확인할 수 있어요.</div>}</div></div>}
+        {tab==="customers"&&<CustomerCRM shop={shop} isDemo={isDemo} bookings={bookings}/>}
         {tab==="notifications"&&<div className="dash-panel">
           <div className="row-between" style={{alignItems:"flex-start",flexWrap:"wrap"}}>
             <div><h3>카카오 알림톡 처리 내역</h3><p className="booking-help">
