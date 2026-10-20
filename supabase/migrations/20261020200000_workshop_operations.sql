@@ -66,6 +66,81 @@ drop trigger if exists meca_bookings_workflow on public.bookings;
 create trigger meca_bookings_workflow before insert or update on public.bookings
 for each row execute function meca_private.booking_workflow_guard();
 
+-- Revalidate all changed services in the established occupancy guard.
+-- The shop ownership/identity stays immutable; authorized managers may change
+-- a repair service if its duration and the new interval fit within capacity.
+create or replace function meca_private.guard_booking()
+returns trigger language plpgsql security definer set search_path = ''
+as $
+declare
+  v_shop record;
+  v_service record;
+  v_hours record;
+  v_start_local timestamp;
+  v_end_local timestamp;
+  v_day date;
+  v_check boolean := false;
+begin
+  if tg_op = 'INSERT' then
+    v_check := new.status in ('pending','confirmed');
+  else
+    if new.shop_id is distinct from old.shop_id
+    then
+      raise exception 'IMMUTABLE_BOOKING';
+    end if;
+    -- Rescheduling active bookings must repeat the capacity check.
+    v_check := new.status in ('pending','confirmed')
+      and (old.status not in ('pending','confirmed')
+        or new.starts_at is distinct from old.starts_at
+        or new.ends_at is distinct from old.ends_at
+        or new.service_id is distinct from old.service_id);
+  end if;
+
+  if not v_check then return new; end if;
+  select s.slot_capacity,s.is_active into v_shop
+    from public.shops s where s.id=new.shop_id;
+  select svc.name,svc.duration_minutes,svc.active into v_service
+    from public.services svc
+    where svc.id=new.service_id and svc.shop_id=new.shop_id;
+  if not found or not coalesce(v_shop.is_active,false)
+    or not coalesce(v_service.active,false)
+    or new.ends_at<>new.starts_at+make_interval(mins=>v_service.duration_minutes)
+  then raise exception 'INVALID_BOOKING'; end if;
+
+  v_start_local := new.starts_at at time zone 'Asia/Seoul';
+  v_end_local := new.ends_at at time zone 'Asia/Seoul';
+  v_day := v_start_local::date;
+  if v_day<>v_end_local::date or v_end_local<=v_start_local
+    or new.ends_at <= now()
+  then raise exception 'SLOT_UNAVAILABLE'; end if;
+
+  select h.open_time,h.close_time,h.is_closed into v_hours
+  from public.business_hours h
+  where h.shop_id=new.shop_id
+    and h.day_of_week=extract(dow from v_day)::integer;
+  if not found or v_hours.is_closed
+    or v_start_local::time < v_hours.open_time
+    or v_end_local::time > v_hours.close_time
+    or exists (select 1 from public.blocked_dates d
+              where d.shop_id=new.shop_id and d.blocked_date=v_day)
+  then raise exception 'SLOT_UNAVAILABLE'; end if;
+
+  -- The same advisory key is acquired by the public RPC. This serializes
+  -- direct manager bookings with customer bookings without table-wide locks.
+  perform pg_advisory_xact_lock(hashtext(new.shop_id::text),hashtext(v_day::text));
+  if not meca_private.has_capacity(
+     new.shop_id,new.starts_at,new.ends_at,v_shop.slot_capacity,
+     case when tg_op='UPDATE' then new.id else null end
+  ) then raise exception 'SLOT_UNAVAILABLE'; end if;
+  new.service_name := v_service.name;
+  return new;
+end;
+$;
+revoke all on function meca_private.guard_booking() from public,anon,authenticated;
+
+
+
+
 -- Slot-occupying statuses are still checked by the existing capacity guard.
 -- The workflow is owner-only through the bookings' existing RLS update policy.
 create index if not exists bookings_shop_work_stage_idx
