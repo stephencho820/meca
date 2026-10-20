@@ -19,7 +19,7 @@ export async function POST(request:NextRequest){
 
   const db=publicDb();
   if(!db)return NextResponse.json({error:"예약 서버가 연결되지 않았습니다."},{status:503});
-  const {data,error}=await db.rpc("create_public_booking",{
+  const {data,error}=await db.rpc("create_public_booking_v2",{
     p_shop_slug:shop,p_service_id:service,p_day:date,p_time:time,
     p_customer_name:customer,p_customer_phone:phone,
     p_vehicle_model:vehicle,p_notes:notes
@@ -31,5 +31,6 @@ export async function POST(request:NextRequest){
       code==="INVALID_BOOKING"?"예약 정보를 다시 확인해 주세요.":"예약을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.";
     return NextResponse.json({error:message,code},{status:code==="SLOT_UNAVAILABLE"?409:code==="INVALID_BOOKING"?400:500});
   }
-  return NextResponse.json({booking_id:data},{status:201,headers:{"Cache-Control":"no-store"}});
+  return NextResponse.json({booking_id:data.booking_id,manage_token:data.manage_token},
+    {status:201,headers:{"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
 }
