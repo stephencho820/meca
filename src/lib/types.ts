@@ -37,6 +37,13 @@ export type Booking = {
   status: "pending" | "confirmed" | "completed" | "cancelled";
   source: string;
   created_at?: string;
+  updated_at?: string;
+  work_stage?: "scheduled" | "checked_in" | "working" | "ready" | "handed_over";
+  internal_note?: string | null;
+  checked_in_at?: string | null;
+  work_started_at?: string | null;
+  work_ready_at?: string | null;
+  handed_over_at?: string | null;
 };
 export type PublicShop = { shop: Shop; services: Service[] };
 export type TimeSlot = { time: string; available: boolean };
