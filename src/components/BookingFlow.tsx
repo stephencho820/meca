@@ -24,7 +24,7 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
     if(!service||!day) return;
     let live=true;
     setTime("");setLoadingSlots(true);setSlots([]);
-    if(isDemo){setSlots(demoSlots(day));setLoadingSlots(false);return;}
+    if(isDemo){setSlots(demoSlots(day,service));setLoadingSlots(false);return;}
     const url="/api/availability?shop="+encodeURIComponent(slug)+"&service="+encodeURIComponent(service.id)+"&date="+day;
     fetch(url).then(r=>r.json().then(j=>({ok:r.ok,json:j}))).then(r=>{if(live){if(r.ok)setSlots(r.json.slots||[]);else setSubmitError(r.json.error||"예약 시간을 불러오지 못했습니다.");}}).catch(()=>{if(live)setSubmitError("시간을 불러오는 데 실패했습니다.");}).finally(()=>{if(live)setLoadingSlots(false);});
     return()=>{live=false;};
@@ -40,10 +40,21 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
       if(isDemo){
         const starts = new Date(day+"T"+time+":00+09:00");const ends=new Date(starts.getTime()+service.duration_minutes*60000);
         const b:Booking={id:crypto.randomUUID(),shop_id:demoShop.id,service_id:service.id,service_name:service.name,customer_name:customer.name.trim(),customer_phone:phone,vehicle_model:customer.vehicle.trim(),notes:customer.notes.trim(),starts_at:starts.toISOString(),ends_at:ends.toISOString(),status:service.approval_required?"pending":"confirmed",source:"web"};
+        if(!demoSlots(day,service).some(slot=>slot.time===time && slot.available)){
+          setSubmitError("선택한 시간이 마감됐어요. 다른 시간을 선택해 주세요.");
+          setDay("");setTime("");setStep(1);return;
+        }
         addDemoBooking(b);setBookingId(b.id);setStep(3);
       }else{
         const res=await fetch("/api/bookings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({shop_slug:slug,service_id:service.id,date:day,time,customer_name:customer.name.trim(),customer_phone:phone,vehicle_model:customer.vehicle.trim(),notes:customer.notes.trim(),privacy_consent:consent})});
-        const j=await res.json();if(!res.ok)throw new Error(j.error||"예약에 실패했습니다.");setBookingId(j.booking_id);setStep(3);
+        const j=await res.json();if(!res.ok){
+          if(j.code==="SLOT_UNAVAILABLE"){
+            setDay("");setTime("");setStep(1);
+            throw new Error("선택한 시간이 방금 마감되었어요. 다른 날짜와 시간을 골라주세요.");
+          }
+          throw new Error(j.error||"예약에 실패했습니다.");
+        }
+        setBookingId(j.booking_id);setStep(3);
       }
     }catch(e){setSubmitError(e instanceof Error?e.message:"예약 도중 오류가 발생했습니다.");}
     finally{setSubmitting(false);}
@@ -53,6 +64,8 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
   return <div className="booking-inner">
     <div className="booking-brand"><div className="booking-brand-icon"><Wrench size={24}/></div><div><strong style={{display:"block",fontSize:17}}>{shop.name}</strong><small style={{color:"#879486"}}>{shop.category} · 온라인 예약</small></div></div>
     {isDemo&&<div style={{fontSize:12,padding:"9px 12px",background:"#f0f6e9",color:"#447349",borderRadius:9,marginBottom:18}}>체험 모드 · 실제 매장으로 예약이 전송되지 않습니다.</div>}
+    {!isDemo&&<div style={{fontSize:12,padding:"10px 12px",background:"#f5f8f3",color:"#607368",borderRadius:9,marginBottom:18}}>예약이 접수되면 매장 관리자 화면에 반영됩니다. 현재 카카오톡·문자 자동 알림은 제공되지 않습니다.</div>}
+
     {step<3&&<><span className="eyebrow">STEP {step+1} / 3</span><div className="step-track">{[0,1,2].map(s=><span key={s} className={step>=s?"active":""}/>)}</div></>}
     {step===0&&<><h2 className="booking-h2">어떤 서비스가 필요하세요?</h2><p className="booking-help">원하는 정비 항목을 선택해 주세요.</p>
       <div className="service-options">{services.filter(s=>s.active!==false).map(s=><button key={s.id} className={"service-option"+(service?.id===s.id?" selected":"")} onClick={()=>{setService(s);setDay("");setTime("");}}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>{s.description || (s.duration_minutes+"분 소요")}</small><small style={{color:"#4f8b55"}}>{money(s.price_from)}</small></div>{service?.id===s.id&&<CheckCircle2 className="end" size={21}/>}</button>)}</div>

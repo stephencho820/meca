@@ -60,4 +60,6 @@ jobs:
       - name: Validate schema and booking transaction
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020000000_initial_meca.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020080000_booking_integrity.sql
           psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase2-smoke.sql
