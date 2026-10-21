@@ -41,7 +41,7 @@ export default function FirstPilotPage({practice=false}:{practice?:boolean}){
    </form>
    <p className="hint" style={{marginTop:18}}>현재 가입한 MECA 계정에 매장이 있으면 다른 이메일로 새 테스트 계정을 만들어야 해요. 비밀번호는 누구에게도 공유하지 마세요.</p>
    <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-    <Link className="btn btn-outline" href={practice?"/start?name=MECA-%EC%82%AC%EC%9E%A5%EB%8B%98-%EC%B2%B4%ED%97%98&pilot=misterm":"/start?name=%EB%AF%B8%EC%8A%A4%ED%84%B0%EC%97%A0&pilot=misterm"}>사장님 이메일로 가입</Link>
+    <Link className="btn btn-outline" href={practice?"/start?name=MECA-%EC%82%AC%EC%9E%A5%EB%8B%98-%EC%B2%B4%ED%97%98&pilot=owner-test":"/start?name=%EB%AF%B8%EC%8A%A4%ED%84%B0%EC%97%A0&pilot=misterm"}>사장님 이메일로 가입</Link>
     <Link className="btn btn-outline" href="/login">로그인</Link>
    </div>
    <p className="hint">가입 또는 로그인 후 초대 코드를 다시 입력할 수 있어요. 실제 고객 예약을 열기 전에는 사업장 정보와 개인정보 처리 안내를 확인해야 합니다.</p>
