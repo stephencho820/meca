@@ -3,12 +3,13 @@ import {useState,type FormEvent} from "react";
 import Link from "next/link";
 import {useRouter} from "next/navigation";
 import {KeyRound,ShieldCheck,Wrench} from "lucide-react";
+import {browserDb} from "@/lib/supabase";
 
 export default function FirstPilotPage({practice=false}:{practice?:boolean}){
  const [code,setCode]=useState("");
  const [message,setMessage]=useState("");
  const router=useRouter();
- function continueSetup(e:FormEvent){
+ async function continueSetup(e:FormEvent){
    e.preventDefault();
    if(!/^[0-9a-f]{64}$/.test(code.trim())){
      setMessage("전달받은 64자리 초대 코드를 확인해 주세요.");return;
@@ -16,7 +17,13 @@ export default function FirstPilotPage({practice=false}:{practice?:boolean}){
    // Session-scoped only: never place the invite in a URL, analytics event,
    // localStorage, or an HTTP referrer.
    sessionStorage.setItem("meca-pilot-invite",code.trim());
-   router.push("/dashboard");
+   sessionStorage.setItem("meca-pilot-onboarding",practice?"owner-test":"misterm");
+   const db=browserDb();
+   const {data}=db?await db.auth.getSession():{data:{session:null}};
+   if(data.session){router.push("/dashboard");return;}
+   router.push(practice
+     ?"/start?name=MECA-%EC%82%AC%EC%9E%A5%EB%8B%98-%EC%B2%B4%ED%97%98&pilot=owner-test"
+     :"/start?name=%EB%AF%B8%EC%8A%A4%ED%84%B0%EC%97%A0&pilot=misterm");
  }
  return <main className="auth-layout">
   <section className="auth-card" style={{maxWidth:560}}>
