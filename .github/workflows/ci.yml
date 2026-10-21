@@ -68,9 +68,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020195000_kakao_notification_outbox.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020200000_workshop_operations.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261020215000_customers_vehicles_crm.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021010000_work_resources.sql
           psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase2-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase3-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase4-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase5-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase6-smoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase7-smoke.sql

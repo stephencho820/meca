@@ -29,6 +29,8 @@ export type Booking = {
   service_id: string | null;
   service_name: string;
   customer_id?: string | null;
+  assigned_technician_id?: string | null;
+  assigned_bay_id?: string | null;
   vehicle_id?: string | null;
   customer_name: string;
   customer_phone: string;
@@ -49,3 +51,7 @@ export type Booking = {
 };
 export type PublicShop = { shop: Shop; services: Service[] };
 export type TimeSlot = { time: string; available: boolean };
+
+export type WorkResource = {
+  id:string;shop_id:string;kind:"technician"|"bay";name:string;active:boolean;created_at?:string;
+};

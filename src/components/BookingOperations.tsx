@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Check, Clock3, Wrench, X } from "lucide-react";
 import { kstDate } from "@/lib/demo";
-import type { Booking, Service } from "@/lib/types";
+import type { Booking, Service, WorkResource } from "@/lib/types";
 
 const labels:Record<string,string>={
  scheduled:"예약 접수",checked_in:"차량 입고",working:"정비 진행",ready:"출고 대기",handed_over:"출고 완료"
@@ -10,7 +10,7 @@ const labels:Record<string,string>={
 const stages=["scheduled","checked_in","working","ready","handed_over"] as const;
 type Stage=typeof stages[number];
 type Patch=Partial<Pick<Booking,"customer_name"|"customer_phone"|"vehicle_model"|"notes"|
-  "internal_note"|"starts_at"|"ends_at"|"service_id"|"work_stage">>;
+  "internal_note"|"starts_at"|"ends_at"|"service_id"|"work_stage"|"assigned_technician_id"|"assigned_bay_id">>;
 
 const fmt=(date:string)=>{
   const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(date));
@@ -20,9 +20,9 @@ const phoneOk=/^01[0-9]{8,9}$/;
 const err=(e:unknown)=>e instanceof Error?e.message:"요청을 처리하지 못했습니다.";
 
 export default function BookingOperations({
- booking,services,busy,onClose,onSave
+ booking,services,resources,busy,onClose,onSave
 }:{
- booking:Booking;services:Service[];busy:boolean;onClose:()=>void;
+ booking:Booking;services:Service[];resources:WorkResource[];busy:boolean;onClose:()=>void;
  onSave:(patch:Patch)=>Promise<void>;
 }){
  const [name,setName]=useState(booking.customer_name);
@@ -31,6 +31,8 @@ export default function BookingOperations({
  const [notes,setNotes]=useState(booking.notes||"");
  const [internalNote,setInternalNote]=useState(booking.internal_note||"");
  const [service,setService]=useState(booking.service_id||"");
+ const [technician,setTechnician]=useState(booking.assigned_technician_id||"");
+ const [bay,setBay]=useState(booking.assigned_bay_id||"");
  const [day,setDay]=useState(kstDate(new Date(booking.starts_at)));
  const [time,setTime]=useState(fmt(booking.starts_at));
  const [message,setMessage]=useState("");
@@ -56,7 +58,9 @@ export default function BookingOperations({
    const starts_at=start.toISOString(),ends_at=new Date(start.getTime()+duration*60000).toISOString();
    const patch:Patch={
      customer_name:name.trim(),customer_phone:digits,vehicle_model:vehicle.trim(),
-     notes:notes.trim(),internal_note:internalNote.trim()
+     notes:notes.trim(),internal_note:internalNote.trim(),
+     assigned_technician_id:editableSchedule?(technician||null):booking.assigned_technician_id||null,
+     assigned_bay_id:editableSchedule?(bay||null):booking.assigned_bay_id||null
    };
    if(editableSchedule){
      patch.service_id=service;patch.starts_at=starts_at;patch.ends_at=ends_at;
@@ -120,6 +124,23 @@ export default function BookingOperations({
          <label className="field-group"><span className="field-label">방문 날짜</span><input className="field" type="date" disabled={!editableSchedule} required value={day} onChange={e=>setDay(e.target.value)}/></label>
          <label className="field-group"><span className="field-label">방문 시간 (30분 단위)</span><input className="field" type="time" step={1800} disabled={!editableSchedule} required value={time} onChange={e=>setTime(e.target.value)}/></label>
        </div>
+       <div className="ops-form-grid">
+         <label className="field-group"><span className="field-label">담당 정비사 (선택)</span>
+           <select className="field" disabled={!editableSchedule} value={technician} onChange={e=>setTechnician(e.target.value)}>
+             <option value="">미배정</option>
+             {resources.filter(r=>r.kind==="technician"&&(r.active||r.id===technician)).map(r=>
+               <option key={r.id} value={r.id}>{r.name}{!r.active?" (비활성)":""}</option>)}
+           </select>
+         </label>
+         <label className="field-group"><span className="field-label">리프트 / 작업 베이 (선택)</span>
+           <select className="field" disabled={!editableSchedule} value={bay} onChange={e=>setBay(e.target.value)}>
+             <option value="">미배정</option>
+             {resources.filter(r=>r.kind==="bay"&&(r.active||r.id===bay)).map(r=>
+               <option key={r.id} value={r.id}>{r.name}{!r.active?" (비활성)":""}</option>)}
+           </select>
+         </label>
+       </div>
+       <p className="hint">이미 다른 예약에 배정된 정비사나 리프트는 같은 시간에 선택할 수 없어요. 서버에서 저장 시 재확인합니다.</p>
        <p className="hint" style={{marginTop:0}}>예약 시간을 변경하면 영업시간·휴무일·다른 예약과의 충돌을 서버에서 확인합니다. 작업 완료 또는 취소된 예약은 일정 변경이 불가능해요.</p>
        <label className="field-group"><span className="field-label">고객 요청사항</span><textarea className="field" rows={2} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
        <label className="field-group"><span className="field-label">정비소 내부 메모 (고객 비공개)</span><textarea className="field" rows={3} maxLength={2000} placeholder="점검 결과, 부품 준비 사항 등을 기록하세요." value={internalNote} onChange={e=>setInternalNote(e.target.value)}/></label>
