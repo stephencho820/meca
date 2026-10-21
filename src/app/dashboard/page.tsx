@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Activity, ArrowRight, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Copy, ExternalLink, LayoutDashboard, LogOut, Plus, Search, Settings, Users, Wrench, X } from "lucide-react";
 import { addDemoBooking, demoBookings, demoServices, demoShop, editDemoBooking, kstDate, money, updateDemoBooking } from "@/lib/demo";
 import { browserDb } from "@/lib/supabase";
-import type { Booking, Service, Shop, WorkResource } from "@/lib/types";
+import type { Booking, Service, Shop, WorkResource, PilotEnrollment } from "@/lib/types";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BookingOperations from "@/components/BookingOperations";
 import CustomerCRM from "@/components/CustomerCRM";
@@ -25,6 +25,10 @@ function Dashboard(){
 
   const [tab,setTab]=useState<Tab>("overview"),[shop,setShop]=useState<Shop|null>(isDemo?demoShop:null),[bookings,setBookings]=useState<Booking[]>([]),[services,setServices]=useState<Service[]>(isDemo?demoServices:[]),[loading,setLoading]=useState(!isDemo),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const [selectedBookingId,setSelectedBookingId]=useState<string|null>(null);
+  const [pilot,setPilot]=useState<PilotEnrollment|null>(null);
+  const [pilotChecks,setPilotChecks]=useState({details:false,hours:false,services:false,privacy:false});
+  const [pilotBusy,setPilotBusy]=useState(false);
+
   const [resources,setResources]=useState<WorkResource[]>(isDemo?readDemoResources():[]);
   const [filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[month,setMonth]=useState(()=>{const d=kstDate(new Date());return d.slice(0,7);}),[showAdd,setShowAdd]=useState(false),[addForm,setAddForm]=useState({name:"",phone:"",vehicle:"",service:demoServices[0].id,day:kstDate(new Date()),time:"10:00"});
   type Hours = {shop_id:string;day_of_week:number;open_time:string;close_time:string;is_closed:boolean};
@@ -35,16 +39,17 @@ function Dashboard(){
   const refresh=useCallback(async(s:Shop)=>{
     if(isDemo){setBookings(demoBookings());setResources(readDemoResources());return;}
     if(!db)return;
-    const [{data:b,error:be},{data:svc,error:se},{data:h,error:he},{data:dates,error:de},{data:res,error:re}]=await Promise.all([
+    const [{data:b,error:be},{data:svc,error:se},{data:h,error:he},{data:dates,error:de},{data:res,error:re},{data:enrollment,error:pe}]=await Promise.all([
       db.from("bookings").select("*").eq("shop_id",s.id).order("starts_at",{ascending:false}).limit(500),
       db.from("services").select("*").eq("shop_id",s.id).order("sort_order",{ascending:true}),
       db.from("business_hours").select("*").eq("shop_id",s.id).order("day_of_week"),
       db.from("blocked_dates").select("*").eq("shop_id",s.id).order("blocked_date"),
-      db.from("work_resources").select("*").eq("shop_id",s.id).order("created_at")
+      db.from("work_resources").select("*").eq("shop_id",s.id).order("created_at"),
+      db.from("pilot_enrollments").select("shop_id,activated_at,ends_at,created_at").eq("shop_id",s.id).maybeSingle()
     ]);
-    if(be||se||he||de||re){setError("예약 정보를 불러오는 중 문제가 발생했습니다.");return;}
+    if(be||se||he||de||re||pe){setError("예약 정보를 불러오는 중 문제가 발생했습니다.");return;}
     setBookings((b||[]) as Booking[]);setServices((svc||[]) as Service[]);
-    setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);setResources((res||[]) as WorkResource[]);
+    setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);setResources((res||[]) as WorkResource[]);setPilot(enrollment as PilotEnrollment|null);
   },[db,isDemo]);
   const refreshNotifications=useCallback(async(s:Shop)=>{
     if(isDemo||!db)return;
@@ -109,6 +114,23 @@ function Dashboard(){
       if(!live)return;
       if(e){setError("매장 정보를 불러오지 못했습니다.");setLoading(false);return;}
       let s=(shops||[])[0] as Shop|undefined;
+      const privateInvite=window.sessionStorage.getItem("meca-pilot-invite");
+      if(!s&&privateInvite){
+        const {data:shopId,error:claimError}=await db.rpc("claim_meca_pilot",{p_code:privateInvite});
+        if(!live)return;
+        if(claimError||!shopId){
+          setError(claimError?.message.includes("OWNER_ALREADY_HAS_SHOP")
+            ?"이 계정에 이미 정비소가 있습니다. 파일럿 전용 신규 계정을 사용해 주세요."
+            :"초대 코드가 유효하지 않거나 만료됐습니다. /pilot/misterm에서 다시 입력해 주세요.");
+          setLoading(false);return;
+        }
+        const {data:claimed,error:readError}=await db.from("shops").select("*").eq("id",shopId).single();
+        if(readError||!claimed){setError("파일럿 매장을 불러오지 못했습니다.");setLoading(false);return;}
+        s=claimed as Shop;
+        window.sessionStorage.removeItem("meca-pilot-invite");
+        localStorage.removeItem("meca-pending-shop");
+        setNotice("무료 파일럿 준비가 완료됐어요. 운영 정보를 확인한 후 고객 예약을 직접 열어 주세요.");
+      }
       if(!s){
         const metadataName=typeof user.user_metadata?.shop_name==="string"?user.user_metadata.shop_name.trim().slice(0,70):"";
         const pending=metadataName||localStorage.getItem("meca-pending-shop")||"나의 정비소";
@@ -206,7 +228,7 @@ function Dashboard(){
   const saveService=async(e:React.FormEvent)=>{e.preventDefault();if(!editService||!shop)return;setSaving(true);
     if(isDemo){setServices(old=>editService.id.startsWith("new-")?[...old,{...editService,id:"demo-"+crypto.randomUUID().slice(0,7)}]:old.map(s=>s.id===editService.id?editService:s));}
     else if(db){
-      const payload={shop_id:shop.id,name:editService.name,description:editService.description||"",duration_minutes:Number(editService.duration_minutes),price_from:editService.price_from==null?null:Number(editService.price_from),icon:editService.icon||"🔧",approval_required:Boolean(editService.approval_required),active:true,sort_order:services.length};
+      const payload={shop_id:shop.id,name:editService.name,description:editService.description||"",duration_minutes:Number(editService.duration_minutes),price_from:editService.price_from==null?null:Number(editService.price_from),icon:editService.icon||"🔧",approval_required:pilot&&!pilot.activated_at?true:Boolean(editService.approval_required),active:Boolean(editService.active),sort_order:services.length};
       const res=editService.id.startsWith("new-")?await db.from("services").insert(payload):await db.from("services").update(payload).eq("id",editService.id).eq("shop_id",shop.id);
       if(res.error){setError("서비스 저장에 실패했습니다.");setSaving(false);return;}await refresh(shop);
     }
@@ -214,8 +236,30 @@ function Dashboard(){
   };
   const saveShop=async(e:React.FormEvent)=>{e.preventDefault();if(!shopForm||!shop)return;
     if(isDemo){setShop(shopForm);setNotice("데모 모드에서는 변경사항이 영구 저장되지 않습니다.");return;}
-    if(!db)return;setSaving(true);const payload={name:shopForm.name,phone:shopForm.phone,address:shopForm.address,description:shopForm.description,slot_capacity:Number(shopForm.slot_capacity)||1};
+    if(!db)return;setSaving(true);const payload={name:shopForm.name,phone:shopForm.phone,address:shopForm.address,description:shopForm.description,slot_capacity:Number(shopForm.slot_capacity)||1,privacy_policy_url:shopForm.privacy_policy_url||null};
     const {error}=await db.from("shops").update(payload).eq("id",shop.id);setSaving(false);if(error)setError("매장 설정을 저장하지 못했습니다.");else{setShop({...shop,...payload});setNotice("매장 설정을 저장했습니다.");}
+  };
+  const activatePilot=async()=>{
+    if(!shop||!db||!pilot||pilot.activated_at)return;
+    if(!Object.values(pilotChecks).every(Boolean)){setError("모든 확인 항목에 동의해 주세요.");return;}
+    setPilotBusy(true);setError("");setNotice("");
+    const {data:endsAt,error:activateError}=await db.rpc("activate_meca_pilot",{
+      p_shop_id:shop.id,p_confirm_details:pilotChecks.details,p_confirm_hours:pilotChecks.hours,
+      p_confirm_services:pilotChecks.services,p_confirm_privacy:pilotChecks.privacy
+    });
+    if(activateError){
+      const msg=activateError.message;
+      setError(msg.includes("PILOT_DETAILS")?"매장명, 전화번호, 주소, HTTPS 개인정보 처리방침 링크를 모두 저장해 주세요.":
+        msg.includes("PILOT_HOURS")?"매장 설정에서 실제 영업일과 영업시간을 먼저 저장해 주세요.":
+        msg.includes("PILOT_SERVICES")?"서비스 관리에서 제공할 정비 항목을 하나 이상 활성화해 주세요.":
+        msg.includes("PILOT_APPROVAL")?"첫 파일럿은 모든 활성 서비스가 '승인 후 확정'이어야 합니다.":
+        "활성화에 실패했습니다. 설정과 계정 권한을 확인해 주세요.");
+    }else{
+      setPilot({...pilot,activated_at:new Date().toISOString(),ends_at:endsAt as string});
+      setShop({...shop,is_active:true});
+      setNotice("파일럿이 활성화됐어요. 30일 무료 이용이 시작되었으며 자동 결제는 없습니다.");
+    }
+    setPilotBusy(false);
   };
   const saveHours=async()=>{
     if(!shop)return;
@@ -253,6 +297,31 @@ function Dashboard(){
         <div className="row-between"><div><span className="eyebrow">MECA WORKSPACE</span><h1 className="dash-h1">{tabs.find(t=>t.id===tab)?.label}</h1><p className="dash-sub">{isDemo?"이 화면은 체험용으로, 데모 예약은 현재 브라우저에만 저장됩니다.":"우리 매장의 예약과 고객을 관리하세요."}</p></div>{(["overview","calendar","bookings"].includes(tab))&&<button className="btn btn-dark" onClick={()=>{setAddForm({...addForm,service:services[0]?.id||""});setShowAdd(true);}}><Plus size={17}/> 예약 추가</button>}</div>
         {notice&&<div className="success" style={{marginTop:20}}>{notice}</div>}{error&&<div className="error" style={{marginTop:20}}>{error}</div>}
         {tab==="overview"&&<><div className="dash-cards">{[{label:"오늘의 예약",value:todayBookings.length,extra:"오늘 예정된 방문"},{label:"확정 대기",value:pending.length,extra:"승인이 필요한 예약"},{label:"전체 고객",value:customers.length,extra:"예약한 고객 수"},{label:"정비 완료",value:done.length,extra:"누적 완료 건수"}].map(k=><div className="stat-card" key={k.label}><span>{k.label}</span><strong>{k.value}<small style={{fontSize:14,color:"#93a096"}}> 건</small></strong><small>{k.extra}</small></div>)}</div><div className="dash-panel"><div className="row-between"><h3>다가오는 예약</h3><button className="btn btn-ghost" onClick={()=>setTab("bookings")}>전체 보기 <ArrowRight size={15}/></button></div><BookingTable onSelect={b=>setSelectedBookingId(b.id)} bookings={bookings.filter(b=>b.status!=="cancelled"&&b.status!=="completed"&&new Date(b.starts_at)>=new Date()).sort((a,b)=>a.starts_at.localeCompare(b.starts_at)).slice(0,7)} setStatus={setStatus}/></div><div className="dash-panel"><h3>빠른 시작</h3><div style={{display:"flex",gap:12,flexWrap:"wrap"}}><button className="btn btn-outline" onClick={copy}><Copy size={16}/> 예약 링크 공유하기</button><button className="btn btn-outline" onClick={()=>setTab("services")}><Wrench size={16}/> 정비 항목 설정하기</button><button className="btn btn-outline" onClick={()=>setTab("settings")}><Settings size={16}/> 매장 정보 입력하기</button></div></div></>}
+        {pilot&&!pilot.activated_at&&tab==="overview"&&<div className="dash-panel" style={{border:"1px solid #9bd780"}}>
+          <span className="eyebrow">FIRST SHOP PILOT</span>
+          <h3>미스터엠 무료 파일럿 준비 중</h3>
+          <p className="booking-help">매장 소유주가 직접 운영 정보를 확인하고 활성화하기 전까지 고객 예약은 공개되지 않습니다.</p>
+          <button className="btn btn-dark" onClick={()=>setTab("settings")}>초기 설정 검토하기 <ArrowRight size={16}/></button>
+        </div>}
+        {pilot&&tab==="settings"&&<div className="dash-panel" style={{maxWidth:680,border:"1px solid #c4e3a8"}}>
+          <span className="eyebrow">30-DAY FREE PILOT</span>
+          <h3>파일럿 활성화</h3>
+          {pilot.activated_at?<p className="success">운영 중 · 무료 파일럿 종료 예정: {pilot.ends_at?koDate(pilot.ends_at):"확인 중"} · 자동 결제 없음</p>:<>
+            <p className="booking-help">사장님이 아래 사항을 확인하고 직접 활성화해야 고객 예약 페이지를 공개할 수 있어요. 활성화 시점부터 30일 무료 기간이 시작됩니다.</p>
+            {([
+              ["details","매장명, 대표번호, 주소를 직접 확인하고 저장했습니다."],
+              ["hours","실제 영업일·영업시간, 특히 토요일 예약 운영시간을 설정했습니다."],
+              ["services","실제로 제공하는 정비 항목을 활성화하고 예약 승인 방식을 확인했습니다."],
+              ["privacy","고객에게 알릴 개인정보 처리방침을 확인하고 HTTPS 주소를 입력했습니다."]
+            ] as const).map(([key,label])=><label className="checkbox" key={key} style={{display:"flex",alignItems:"center",margin:"13px 0"}}>
+              <input type="checkbox" checked={pilotChecks[key]} onChange={e=>setPilotChecks(old=>({...old,[key]:e.target.checked}))}/>{label}
+            </label>)}
+            <p className="hint">알림톡 발송과 카드 결제는 꺼져 있습니다. 고객 예약은 사장님이 승인하는 방식으로 운영합니다.</p>
+            <button className="btn btn-dark" disabled={pilotBusy||saving||!Object.values(pilotChecks).every(Boolean)} type="button" onClick={()=>void activatePilot()}>
+              {pilotBusy?"설정 확인 중...":"확인 후 30일 무료 파일럿 시작"}
+            </button>
+          </>}
+        </div>}
         {tab==="calendar"&&<ScheduleBoard bookings={bookings} onSelect={b=>setSelectedBookingId(b.id)}/>}
         {tab==="workflow"&&<div className="dash-panel">
           <div className="row-between" style={{flexWrap:"wrap",gap:12}}>
@@ -308,8 +377,8 @@ function Dashboard(){
         {tab==="resources"&&<ResourcesPanel shop={shop} isDemo={isDemo} resources={resources}
           bookings={bookings} onUpdate={setResources}/>}
         {tab==="privacy"&&<PrivacyReview shop={shop} isDemo={isDemo}/>}
-        {tab==="services"&&<div className="dash-panel"><div className="row-between"><h3>예약 가능 정비 항목</h3><button className="btn btn-dark" onClick={()=>setEditService({id:"new-"+crypto.randomUUID().slice(0,5),name:"",description:"",duration_minutes:60,price_from:null,icon:"🔧",approval_required:false})}><Plus size={16}/> 항목 추가</button></div><div className="service-options">{services.map(s=><button className="service-option" key={s.id} onClick={()=>setEditService(s)}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>소요 {s.duration_minutes}분 · {money(s.price_from)} · {s.approval_required?"승인 후 확정":"자동 확정"}</small></div><Settings style={{marginLeft:"auto",color:"#809084"}} size={17}/></button>)}</div></div>}
-        {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>매장 기본 정보</h3><form onSubmit={saveShop}>{[["매장명","name"],["전화번호","phone"],["주소","address"],["매장 소개","description"]].map(([label,key])=><div className="field-group" key={key}><label className="field-label">{label}</label><input className="field" value={String(shopForm?.[key as keyof Shop]||"")} onChange={e=>setShopForm(old=>old?{...old,[key]:e.target.value}:old)} required={key==="name"}/></div>)}<div className="field-group"><label className="field-label">동시 예약 수용 건수</label><input className="field" type="number" min={1} max={10} value={shopForm?.slot_capacity||1} onChange={e=>setShopForm(old=>old?{...old,slot_capacity:Number(e.target.value)}:old)}/></div><div className="field-group"><label className="field-label">예약 페이지 주소</label><input className="field" readOnly value={"/book/"+shop.slug}/><small className="hint">매장 주소는 예약 링크 안정성을 위해 자동 발급되고 고정됩니다.</small></div><button className="btn btn-dark" disabled={saving} type="submit">{saving?"저장 중":"설정 저장"}</button></form></div>}
+        {tab==="services"&&<div className="dash-panel"><div className="row-between"><h3>예약 가능 정비 항목</h3><button className="btn btn-dark" onClick={()=>setEditService({id:"new-"+crypto.randomUUID().slice(0,5),name:"",description:"",duration_minutes:60,price_from:null,icon:"🔧",approval_required:Boolean(pilot),active:true})}><Plus size={16}/> 항목 추가</button></div><div className="service-options">{services.map(s=><button className="service-option" key={s.id} onClick={()=>setEditService(s)}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>소요 {s.duration_minutes}분 · {money(s.price_from)} · {s.approval_required?"승인 후 확정":"자동 확정"}</small></div><Settings style={{marginLeft:"auto",color:"#809084"}} size={17}/></button>)}</div></div>}
+        {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>매장 기본 정보</h3><form onSubmit={saveShop}>{[["매장명","name"],["전화번호","phone"],["주소","address"],["매장 소개","description"],["개인정보 처리방침 HTTPS 주소","privacy_policy_url"]].map(([label,key])=><div className="field-group" key={key}><label className="field-label">{label}</label><input className="field" value={String(shopForm?.[key as keyof Shop]||"")} onChange={e=>setShopForm(old=>old?{...old,[key]:e.target.value}:old)} required={key==="name"}/></div>)}<div className="field-group"><label className="field-label">동시 예약 수용 건수</label><input className="field" type="number" min={1} max={10} value={shopForm?.slot_capacity||1} onChange={e=>setShopForm(old=>old?{...old,slot_capacity:Number(e.target.value)}:old)}/></div><div className="field-group"><label className="field-label">예약 페이지 주소</label><input className="field" readOnly value={"/book/"+shop.slug}/><small className="hint">매장 주소는 예약 링크 안정성을 위해 자동 발급되고 고정됩니다.</small></div><button className="btn btn-dark" disabled={saving} type="submit">{saving?"저장 중":"설정 저장"}</button></form></div>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>영업시간 및 예약 가능 시간</h3><p className="booking-help">매일의 예약 가능 시간을 설정합니다. 선택한 시간과 정비 소요 시간을 기준으로 고객에게 예약 슬롯이 제공됩니다.</p>
           {["일","월","화","수","목","금","토"].map((label,i)=>{const h=hours.find(x=>x.day_of_week===i);if(!h)return null;return <div key={i} className="row-between" style={{borderBottom:"1px solid #edf1ea",padding:"12px 0",flexWrap:"wrap"}}><strong style={{width:38,fontSize:13}}>{label}요일</strong><label className="checkbox" style={{margin:0}}><input type="checkbox" checked={!h.is_closed} onChange={e=>setHours(old=>old.map(x=>x.day_of_week===i?{...x,is_closed:!e.target.checked}:x))}/> 영업</label><div className="row-between" style={{gap:8,marginLeft:"auto"}}><input aria-label={label+"요일 시작 시간"} type="time" className="field" style={{width:122}} value={h.open_time.slice(0,5)} disabled={h.is_closed} onChange={e=>setHours(old=>old.map(x=>x.day_of_week===i?{...x,open_time:e.target.value}:x))}/><span className="muted">~</span><input aria-label={label+"요일 종료 시간"} type="time" className="field" style={{width:122}} value={h.close_time.slice(0,5)} disabled={h.is_closed} onChange={e=>setHours(old=>old.map(x=>x.day_of_week===i?{...x,close_time:e.target.value}:x))}/></div></div>;})}
           <button className="btn btn-dark" type="button" disabled={saving} style={{marginTop:20}} onClick={saveHours}>영업시간 저장</button>
