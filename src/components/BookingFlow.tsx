@@ -1,10 +1,12 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import HumanCheck from "@/components/HumanCheck";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Loader2, MapPin, ShieldCheck, Wrench } from "lucide-react";
 import { addDemoBooking, demoServices, demoShop, demoSlots, getDays, money, phoneFormat } from "@/lib/demo";
 import type { Booking, PublicShop, Service, TimeSlot } from "@/lib/types";
 export default function BookingFlow({slug,embedded=false}:{slug:string; embedded?:boolean}) {
   const isDemo = slug === "demo-garage";
+  const siteKey=isDemo?"":process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY||"";
   const days = useMemo(()=>getDays(),[]);
   const [data,setData] = useState<PublicShop|null>(isDemo?{shop:demoShop,services:demoServices}:null);
   const [loadError,setLoadError] = useState("");
@@ -16,6 +18,9 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
   const [loadingSlots,setLoadingSlots] = useState(false);
   const [customer,setCustomer] = useState({name:"",phone:"",vehicle:"",notes:""});
   const [consent,setConsent] = useState(false);
+  const [captchaToken,setCaptchaToken] = useState("");
+  const [captchaCycle,setCaptchaCycle] = useState(0);
+  const verified=useCallback((token:string)=>setCaptchaToken(token),[]);
   const [submitting,setSubmitting] = useState(false);
   const [bookingId,setBookingId] = useState("");
   const [manageToken,setManageToken] = useState("");
@@ -37,6 +42,7 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
     if(!customer.name.trim() || customer.name.length>80){setSubmitError("이름을 입력해 주세요.");return;}
     if(!/^01\d{8,9}$/.test(phone)){setSubmitError("올바른 휴대전화 번호를 입력해 주세요.");return;}
     if(!consent){setSubmitError("예약을 위한 개인정보 수집·이용에 동의해 주세요.");return;}
+    if(siteKey&&!captchaToken){setSubmitError("자동 예약 방지 확인을 완료해 주세요.");return;}
     setSubmitting(true);setSubmitError("");
     try{
       if(isDemo){
@@ -48,7 +54,7 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
         }
         addDemoBooking(b);setBookingId(b.id);setManageToken("demo-"+b.id);setStep(3);
       }else{
-        const res=await fetch("/api/bookings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({shop_slug:slug,service_id:service.id,date:day,time,customer_name:customer.name.trim(),customer_phone:phone,vehicle_model:customer.vehicle.trim(),notes:customer.notes.trim(),privacy_consent:consent})});
+        const res=await fetch("/api/bookings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({shop_slug:slug,service_id:service.id,date:day,time,customer_name:customer.name.trim(),customer_phone:phone,vehicle_model:customer.vehicle.trim(),notes:customer.notes.trim(),privacy_consent:consent,turnstile_token:captchaToken})});
         const j=await res.json();if(!res.ok){
           if(j.code==="SLOT_UNAVAILABLE"){
             setDay("");setTime("");setStep(1);
@@ -58,7 +64,8 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
         }
         setBookingId(j.booking_id);setManageToken(j.manage_token||"");setStep(3);
       }
-    }catch(e){setSubmitError(e instanceof Error?e.message:"예약 도중 오류가 발생했습니다.");}
+    }catch(e){setSubmitError(e instanceof Error?e.message:"예약 도중 오류가 발생했습니다.");
+      if(siteKey){setCaptchaToken("");setCaptchaCycle(n=>n+1);}}
     finally{setSubmitting(false);}
   };
   if(!data)return <div className="booking-inner" style={{minHeight:350,display:"grid",placeItems:"center"}}>{loadError?<div className="error">{loadError}</div>:<Loader2 className="spin" size={30}/>}</div>;
@@ -86,8 +93,9 @@ export default function BookingFlow({slug,embedded=false}:{slug:string; embedded
       <div className="field-group"><label className="field-label" htmlFor="customer-vehicle">차량 모델 (선택)</label><input id="customer-vehicle" className="field" maxLength={100} value={customer.vehicle} onChange={e=>setCustomer({...customer,vehicle:e.target.value})} placeholder="예: 쏘렌토 2023"/></div>
       <div className="field-group"><label className="field-label" htmlFor="customer-notes">요청사항 (선택)</label><textarea id="customer-notes" className="field" rows={3} maxLength={500} value={customer.notes} onChange={e=>setCustomer({...customer,notes:e.target.value})} placeholder="차량 증상이나 필요한 사항을 알려주세요."/></div>
       <label className="checkbox"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>[필수] 예약 접수·관리를 위해 이름, 연락처, 차량 정보(입력 시)를 해당 매장에 제공합니다. 정보는 예약 관리 목적으로 이용됩니다. 서비스 이용 및 보관 정책은 운영 전 확정해야 합니다.</span></label>
+      {siteKey&&<HumanCheck key={captchaCycle} siteKey={siteKey} onVerified={verified}/>}
       {submitError&&<p className="error" style={{marginTop:16}}>{submitError}</p>}
-      <div className="booking-bottom"><button className="btn btn-outline" onClick={()=>setStep(1)}><ArrowLeft size={16}/> 이전</button><button className="btn btn-dark" disabled={submitting||!consent||!customer.name.trim()||!customer.phone.trim()} onClick={submit}>{submitting?<Loader2 size={16} className="spin"/>:<Check size={16}/>} {submitting?"예약 접수 중":"예약 접수하기"}</button></div>
+      <div className="booking-bottom"><button className="btn btn-outline" onClick={()=>setStep(1)}><ArrowLeft size={16}/> 이전</button><button className="btn btn-dark" disabled={submitting||!consent||!!siteKey&&!captchaToken||!customer.name.trim()||!customer.phone.trim()} onClick={submit}>{submitting?<Loader2 size={16} className="spin"/>:<Check size={16}/>} {submitting?"예약 접수 중":"예약 접수하기"}</button></div>
     </>}
     {step===3&&<div className="booking-done"><div className="booking-done-icon"><Check size={38}/></div><span className="eyebrow">BOOKING RECEIVED</span><h2>{service?.approval_required?"예약 요청이 접수됐어요!":"예약이 접수됐어요!"}</h2><p className="booking-help"> {service?.approval_required?"가게에서 확인 후 확정됩니다.":"아래 예약 정보를 확인해 주세요."}<br/>{isDemo?"데모 예약은 이 브라우저의 관리자 데모에만 저장됩니다.":"실제 알림 메시지는 아직 연결되지 않았습니다."}</p><div className="booking-summary" style={{textAlign:"left"}}><div>매장 <strong>{shop.name}</strong></div><div>서비스 <strong>{service?.name}</strong></div><div>일시 <strong>{day} {time}</strong></div><div>예약번호 <strong>{bookingId.slice(0,8).toUpperCase()}</strong></div></div>{manageToken&&<div style={{padding:"15px",background:"#eff8e7",borderRadius:13,margin:"16px 0",textAlign:"left"}}>
         <strong style={{fontSize:14}}>예약 관리 링크를 보관하세요</strong>

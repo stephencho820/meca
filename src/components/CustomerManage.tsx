@@ -25,6 +25,7 @@ export default function CustomerManage(){
   const [loading,setLoading]=useState(false);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
+  const [privacySubmitting,setPrivacySubmitting]=useState(false);
   const [editing,setEditing]=useState(false);
   const [day,setDay]=useState("");
   const [time,setTime]=useState("");
@@ -121,6 +122,19 @@ export default function CustomerManage(){
     }catch(e){setError(e instanceof Error?e.message:"변경을 완료하지 못했습니다.");}
     finally{setSubmitting(false);}
   }
+  async function requestPrivacy(kind:"access"|"rectify"|"erase"){
+    if(isDemo){setNotice("체험 예약에서는 개인정보 요청을 실제로 전송하지 않습니다.");return;}
+    if(!token||!window.confirm("개인정보 요청을 정비소 담당자에게 접수할까요? 요청 즉시 삭제되는 것은 아닙니다."))return;
+    setPrivacySubmitting(true);setError("");setNotice("");
+    try{
+      const res=await fetch("/api/privacy",{method:"POST",headers:{"Content-Type":"application/json"},
+        cache:"no-store",referrerPolicy:"no-referrer",body:JSON.stringify({token,kind})});
+      const obj=await res.json() as {error?:string;message?:string};
+      if(!res.ok)throw Error(obj.error||"요청 접수에 실패했습니다.");
+      setNotice("개인정보 요청을 접수했어요. 담당자가 확인한 후 처리합니다. 요청만으로 예약 정보가 자동 삭제되지는 않습니다.");
+    }catch(e){setError(e instanceof Error?e.message:"요청을 접수하지 못했습니다.");}
+    finally{setPrivacySubmitting(false);}
+  }
   const canEdit=Boolean(booking&&["pending","confirmed"].includes(booking.status)&&
     new Date(booking.starts_at).getTime()>Date.now()+3600000);
   const statusMap:Record<Managed["status"],string>={
@@ -172,6 +186,15 @@ export default function CustomerManage(){
         </div>}
         {!canEdit&&<p className="booking-help" style={{marginTop:18}}>온라인 변경이 불가능한 예약입니다. 추가 도움이 필요하면 매장에 연락해 주세요.</p>}
         {booking.shop_phone&&<p style={{fontSize:13,marginTop:15}}>매장 연락처: <a href={"tel:"+booking.shop_phone} style={{textDecoration:"underline"}}>{booking.shop_phone}</a></p>}
+        <div className="privacy-actions">
+          <h3>개인정보 관련 요청</h3>
+          <p className="booking-help">예약에 사용된 개인정보에 대해 열람, 정정 또는 삭제를 요청할 수 있어요. 요청을 담당 정비소가 확인하며, 다른 법적 보관 의무가 있는 기록은 즉시 삭제되지 않을 수 있습니다.</p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button type="button" className="btn btn-outline" disabled={privacySubmitting} onClick={()=>void requestPrivacy("access")}>열람 요청</button>
+            <button type="button" className="btn btn-outline" disabled={privacySubmitting} onClick={()=>void requestPrivacy("rectify")}>정정 요청</button>
+            <button type="button" className="btn btn-outline" disabled={privacySubmitting} onClick={()=>void requestPrivacy("erase")}>삭제 요청</button>
+          </div>
+        </div>
         <button className="btn btn-outline btn-wide" style={{marginTop:15}} onClick={()=>void copyLink()}><ClipboardCopy size={16}/> 내 예약 관리 링크 복사</button>
         <button className="btn btn-ghost btn-wide" style={{marginTop:9}} onClick={()=>{setBooking(null);setToken("");setInput("");window.sessionStorage.removeItem("meca-manage-token");}}>다른 예약 조회하기</button>
       </>}
