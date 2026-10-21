@@ -58,6 +58,10 @@ as $$
 declare
  v_id uuid;v_kind text;
 begin
+ if tg_op='UPDATE' and old.status in ('completed','cancelled')
+    and (new.assigned_technician_id is distinct from old.assigned_technician_id
+      or new.assigned_bay_id is distinct from old.assigned_bay_id)
+ then raise exception 'RESOURCE_CLOSED'; end if;
  if new.status not in ('pending','confirmed') then return new; end if;
  if new.assigned_technician_id is null and new.assigned_bay_id is null then return new; end if;
  if new.assigned_technician_id is not null and new.assigned_bay_id = new.assigned_technician_id
@@ -69,7 +73,7 @@ begin
    -- existed when the transaction began.
    perform pg_advisory_xact_lock(hashtextextended('meca-resource:'||v_id::text,0));
    select r.kind into v_kind from public.work_resources r
-    where r.id=v_id and r.shop_id=new.shop_id and r.active;
+    where r.id=v_id and r.shop_id=new.shop_id and r.active for share;
    if not found then raise exception 'INVALID_RESOURCE';end if;
    if (v_id=new.assigned_technician_id and v_kind<>'technician')
       or (v_id=new.assigned_bay_id and v_kind<>'bay')
