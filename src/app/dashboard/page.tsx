@@ -128,8 +128,13 @@ function Dashboard(){
         if(readError||!claimed){setError("파일럿 매장을 불러오지 못했습니다.");setLoading(false);return;}
         s=claimed as Shop;
         window.sessionStorage.removeItem("meca-pilot-invite");
+        window.sessionStorage.removeItem("meca-pilot-onboarding");
         localStorage.removeItem("meca-pending-shop");
         setNotice("무료 파일럿 준비가 완료됐어요. 운영 정보를 확인한 후 고객 예약을 직접 열어 주세요.");
+      }
+      if(!s&&window.sessionStorage.getItem("meca-pilot-onboarding")==="misterm"){
+        setError("전용 초대 코드를 먼저 입력해야 합니다. 파일럿 준비 페이지에서 코드를 입력해 주세요.");
+        setLoading(false);return;
       }
       if(!s){
         const metadataName=typeof user.user_metadata?.shop_name==="string"?user.user_metadata.shop_name.trim().slice(0,70):"";
@@ -289,7 +294,7 @@ function Dashboard(){
     return [...Array(offset).fill(null),...Array.from({length:count},(_,i)=>i+1)] as (number|null)[];
   },[month]);
   if(loading)return <div className="auth-layout"><div>매장 정보를 불러오는 중...</div></div>;
-  if(!shop)return <div className="auth-layout"><div className="auth-card"><h2>매장에 연결하지 못했습니다.</h2><p>{error}</p><Link className="btn btn-dark" href="/login">로그인</Link> <Link className="btn btn-outline" href="/dashboard?demo=1">데모 보기</Link></div></div>;
+  if(!shop)return <div className="auth-layout"><div className="auth-card"><h2>매장에 연결하지 못했습니다.</h2><p>{error}</p><Link className="btn btn-dark" href="/pilot/misterm">파일럿 초대 코드 입력</Link> <Link className="btn btn-outline" href="/login">로그인</Link> <Link className="btn btn-outline" href="/dashboard?demo=1">데모 보기</Link></div></div>;
   return <div className="dash-shell">
     <aside className="dash-sidebar"><Link href="/" className="logo dash-logo"><span className="logo-icon"><Wrench size={20}/></span>meca.</Link><nav className="dash-nav">{tabs.map(t=><button key={t.id} className={"dash-item"+(tab===t.id?" active":"")} onClick={()=>{setTab(t.id);setError("");}}><t.icon size={18}/>{t.label}</button>)}</nav><div className="dash-side-bottom"><div style={{fontSize:12,color:"#8f9b92",padding:"0 9px 15px"}}>{shop.name}{isDemo&&<div>체험용 데이터</div>}</div><button className="dash-item" onClick={isDemo?()=>router.push("/"):logout}><LogOut size={17}/>{isDemo?"홈으로":"로그아웃"}</button></div></aside>
     <div className="dash-main"><header className="dash-top"><div><strong style={{fontSize:16}}>{shop.name}</strong><br/><small>매장 관리 워크스페이스 {isDemo&&"· DEMO"}</small></div><div className="row-between"><button className="btn btn-outline" onClick={copy}><Copy size={15}/><span className="hide-mobile">예약 링크 복사</span></button><a className="btn btn-dark" href={"/book/"+shop.slug} target="_blank" rel="noopener noreferrer">예약 페이지 <ExternalLink size={15}/></a></div></header>
