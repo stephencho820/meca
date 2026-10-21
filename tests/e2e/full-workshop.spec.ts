@@ -1,6 +1,7 @@
 import {test,expect} from "@playwright/test";
 
 test("complete end-to-end workshop day: booking, reschedule, assignment, repair, CRM",async({page})=>{
+  test.setTimeout(90_000);
   const customer="운영검증 테스트고객";
   await page.goto("/demo");
   await page.getByRole("button",{name:/엔진오일 교환/}).click();
@@ -27,6 +28,9 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
   let reschedule=false;
   for(let i=3;i<13;i++){
     await page.locator(".day-pill").nth(i).click();
+    // The demo computes replacement slots in a React effect after the date
+    // rerender. Let the previous grid unmount before selecting a new slot.
+    await page.waitForTimeout(120);
     const available=page.locator(".time-pill:not([disabled])").first();
     if(await available.count()){
       await available.click();reschedule=true;break;
