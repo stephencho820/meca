@@ -124,3 +124,17 @@
 .crm-modal{max-height:93vh;overflow:auto}
 @media(max-width:900px){.crm-layout{grid-template-columns:1fr}.crm-list-scroll{max-height:260px}.crm-detail{padding:12px 0}}
 @media(max-width:550px){.crm-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.crm-stats>div{padding:10px}.crm-cars{grid-template-columns:1fr 1fr}}
+
+/* Phase 7: people and lift allocation */
+.resource-form{display:grid;grid-template-columns:minmax(130px,200px) minmax(170px,1fr) auto;gap:12px;align-items:end;margin:22px 0 25px}
+.resource-form .field-group{margin:0}
+.resource-form .btn{min-height:45px}
+.resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.resource-group{min-width:0;background:#f7faf4;border:1px solid #e5ebdf;padding:18px;border-radius:13px}
+.resource-group h4{font-size:15px;margin:0}
+.resource-item{display:flex;align-items:center;justify-content:space-between;gap:10px;background:white;border:1px solid #e5ece2;border-radius:10px;padding:13px;margin:9px 0}
+.resource-item>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.resource-item strong{font-size:13px;word-break:break-word}
+.resource-item small{font-size:11px;color:#748a77}
+.resource-item .btn{padding:7px 11px;font-size:11px}
+@media(max-width:720px){.resource-grid{grid-template-columns:1fr}.resource-form{grid-template-columns:1fr 1fr}.resource-form .btn{grid-column:1/-1}}
