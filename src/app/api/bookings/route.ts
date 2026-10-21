@@ -5,8 +5,20 @@ import { publicDb } from "@/lib/supabase";
 const validUuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 const validDate=(s:string)=>/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s+"T00:00:00+09:00").getTime());
 export async function POST(request:NextRequest){
+  const source=request.headers.get("origin");
+  if(source&&source!==request.nextUrl.origin)
+    return NextResponse.json({error:"허용되지 않은 요청입니다."},{status:403});
+  const contentType=request.headers.get("content-type")||"";
+  if(!contentType.toLowerCase().startsWith("application/json"))
+    return NextResponse.json({error:"JSON 요청만 지원합니다."},{status:415});
+  const length=Number(request.headers.get("content-length")||"0");
+  if(length>6000)return NextResponse.json({error:"요청이 너무 큽니다."},{status:413});
   let body:Record<string,unknown>;
-  try{body=await request.json();}catch{return NextResponse.json({error:"잘못된 요청 형식입니다."},{status:400});}
+  try{
+    const raw=await request.text();
+    if(raw.length>6000)return NextResponse.json({error:"요청이 너무 큽니다."},{status:413});
+    body=JSON.parse(raw);
+  }catch{return NextResponse.json({error:"잘못된 요청 형식입니다."},{status:400});}
   if(typeof body!=="object"||body===null||Array.isArray(body))return NextResponse.json({error:"잘못된 요청입니다."},{status:400});
   const value=(k:string,max:number)=>typeof body[k]==="string"?(body[k] as string).trim().slice(0,max):"";
   const shop=value("shop_slug",60),service=value("service_id",64),date=value("date",10),
@@ -26,11 +38,13 @@ export async function POST(request:NextRequest){
     p_vehicle_model:vehicle,p_notes:notes
   });
   if(error){
-    const code=error.message.includes("SLOT_UNAVAILABLE")?"SLOT_UNAVAILABLE":
+    const code=error.message.includes("BOOKING_RATE_LIMIT")?"RATE_LIMITED":
+      error.message.includes("SLOT_UNAVAILABLE")?"SLOT_UNAVAILABLE":
       error.message.includes("INVALID_BOOKING")?"INVALID_BOOKING":"BOOKING_FAILED";
-    const message=code==="SLOT_UNAVAILABLE"?"이미 마감된 시간입니다. 다른 시간을 선택해 주세요.":
+    const message=code==="RATE_LIMITED"?"짧은 시간 동안 예약 요청이 많았습니다. 1시간 후 다시 시도하거나 매장에 문의해 주세요.":
+      code==="SLOT_UNAVAILABLE"?"이미 마감된 시간입니다. 다른 시간을 선택해 주세요.":
       code==="INVALID_BOOKING"?"예약 정보를 다시 확인해 주세요.":"예약을 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.";
-    return NextResponse.json({error:message,code},{status:code==="SLOT_UNAVAILABLE"?409:code==="INVALID_BOOKING"?400:500});
+    return NextResponse.json({error:message,code},{status:code==="RATE_LIMITED"?429:code==="SLOT_UNAVAILABLE"?409:code==="INVALID_BOOKING"?400:500,headers:code==="RATE_LIMITED"?{"Retry-After":"3600","Cache-Control":"no-store"}:{"Cache-Control":"no-store"}});
   }
   // Transactional outbox is already committed by the booking trigger. Sending
   // is best-effort and never makes the successfully created booking fail.
