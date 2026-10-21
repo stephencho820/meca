@@ -22,6 +22,7 @@ export type Shop = {
   primary_color?: string;
   is_active?: boolean;
   slot_capacity?: number;
+  privacy_policy_url?: string|null;
 };
 export type Booking = {
   id: string;
@@ -55,3 +56,5 @@ export type TimeSlot = { time: string; available: boolean };
 export type WorkResource = {
   id:string;shop_id:string;kind:"technician"|"bay";name:string;active:boolean;created_at?:string;
 };
+
+export type PilotEnrollment={shop_id:string;activated_at:string|null;ends_at:string|null;created_at:string};
