@@ -7,6 +7,7 @@ function Form(){
   const search=useSearchParams();const [name,setName]=useState(search.get("name")||""),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[message,setMessage]=useState(""),[error,setError]=useState(""),[working,setWorking]=useState(false);
   async function submit(e:React.FormEvent){e.preventDefault();setError("");if(password.length<8){setError("비밀번호는 8자 이상 입력해 주세요.");return;}if(!name.trim()){setError("가게 이름을 입력해 주세요.");return;}
     const db=browserDb();if(!db){setError("아직 계정 생성 서버가 연결되지 않았습니다. 데모 모드에서 기능을 체험할 수 있습니다.");return;}
+    if(search.get("pilot")==="misterm")sessionStorage.setItem("meca-pilot-onboarding","misterm");
     setWorking(true);const origin=window.location.origin;const {data,error}=await db.auth.signUp({email:email.trim().toLowerCase(),password,options:{emailRedirectTo:origin+"/auth/callback",data:{shop_name:name.trim().slice(0,70)}}});setWorking(false);
     if(error){setError("계정을 만들지 못했습니다: "+error.message);return;}
     localStorage.setItem("meca-pending-shop",name.trim().slice(0,70));
