@@ -40,7 +40,7 @@ export default function FirstPilotPage(){
    </form>
    <p className="hint" style={{marginTop:18}}>이미 MECA 계정이 있으면 로그인하세요. 매장 계정이 없는 분은 본인 이메일로 먼저 가입해야 합니다.</p>
    <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-    <Link className="btn btn-outline" href="/start?name=%EB%AF%B8%EC%8A%A4%ED%84%B0%EC%97%A0">사장님 이메일로 가입</Link>
+    <Link className="btn btn-outline" href="/start?name=%EB%AF%B8%EC%8A%A4%ED%84%B0%EC%97%A0&pilot=misterm">사장님 이메일로 가입</Link>
     <Link className="btn btn-outline" href="/login">로그인</Link>
    </div>
    <p className="hint">가입 또는 로그인 후 이 페이지에서 코드를 다시 입력할 수 있어요. 초대 코드는 타인에게 공개하지 마세요.</p>
