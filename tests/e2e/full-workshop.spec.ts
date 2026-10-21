@@ -70,6 +70,6 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
   const customerButton=page.getByRole("button").filter({hasText:customer}).first();
   await expect(customerButton).toBeVisible();
   await customerButton.click();
-  await expect(page.getByText("운영검증 시승차")).toBeVisible();
+  await expect(page.getByRole("button",{name:/운영검증 시승차 번호판 미등록/})).toBeVisible();
   await expect(page.getByText("정비 완료",{exact:true}).last()).toBeVisible();
 });
