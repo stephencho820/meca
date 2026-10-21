@@ -1,3 +1,4 @@
+import {verifyHuman} from "@/lib/turnstile";
 import { processNotificationQueue } from "@/lib/notifications";
 import { NextRequest, NextResponse } from "next/server";
 import { publicDb } from "@/lib/supabase";
@@ -30,6 +31,14 @@ export async function POST(request:NextRequest){
      ||body.privacy_consent!==true)
     return NextResponse.json({error:"예약 정보를 다시 확인해 주세요.",code:"INVALID_BOOKING"},{status:400});
 
+  const human=await verifyHuman(request,body.turnstile_token);
+  if(human!=="ok"){
+    const unavailable=human==="unavailable";
+    return NextResponse.json({
+      error:unavailable?"예약 확인 시스템을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.":"자동 예약 방지 확인이 필요합니다. 다시 확인해 주세요.",
+      code:unavailable?"BOT_CHECK_UNAVAILABLE":"BOT_CHECK_FAILED"
+    },{status:unavailable?503:403,headers:{"Cache-Control":"no-store"}});
+  }
   const db=publicDb();
   if(!db)return NextResponse.json({error:"예약 서버가 연결되지 않았습니다."},{status:503});
   const {data,error}=await db.rpc("create_public_booking_v2",{
