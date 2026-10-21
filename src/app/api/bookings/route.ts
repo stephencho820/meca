@@ -1,5 +1,6 @@
 import {verifyHuman} from "@/lib/turnstile";
 import { processNotificationQueue } from "@/lib/notifications";
+import {deliverOwnerEmailJobs} from "@/lib/owner-email";
 import { NextRequest, NextResponse } from "next/server";
 import { publicDb } from "@/lib/supabase";
 
@@ -57,6 +58,7 @@ export async function POST(request:NextRequest){
   }
   // Transactional outbox is already committed by the booking trigger. Sending
   // is best-effort and never makes the successfully created booking fail.
+  try{await deliverOwnerEmailJobs(data.booking_id);}catch{/* durable outbox kept for retry */}
   try{await processNotificationQueue(data.booking_id);}catch{/* outbox retained for operators */}
   return NextResponse.json({booking_id:data.booking_id,manage_token:data.manage_token},
     {status:201,headers:{"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
