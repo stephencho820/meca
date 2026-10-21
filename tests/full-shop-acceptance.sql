@@ -6,7 +6,7 @@ BEGIN;
 DO $acceptance$
 declare
   owner_id uuid:=gen_random_uuid();
-  slug text:='accept-'+substr(replace(gen_random_uuid()::text,'-',''),1,14);
+  slug text:='accept-'||substr(replace(gen_random_uuid()::text,'-',''),1,14);
   v_shop_id uuid;svc uuid;day date;
   first_id uuid;second_id uuid;tok text;tok2 text;result jsonb;
   staff1 uuid;staff2 uuid;lift1 uuid;lift2 uuid;request_id uuid;
