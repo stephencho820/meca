@@ -64,7 +64,7 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
   page.once("dialog",native=>void native.accept());
   await advance("출고 완료 처리","출고 완료");
   await expect(dialog.getByText("정비 완료")).toBeVisible();
-  await dialog.getByRole("button",{name:"닫기"}).click();
+  await dialog.getByRole("button",{name:"닫기"}).last().click();
 
   await page.getByRole("button",{name:"고객 관리"}).click();
   const customerButton=page.getByRole("button").filter({hasText:customer}).first();
