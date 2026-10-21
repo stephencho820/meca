@@ -72,6 +72,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021020000_public_booking_throttle.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021030000_privacy_requests.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021230000_pilot_invites.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021240000_owner_email_alerts.sql
           psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase2-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase3-smoke.sql
@@ -83,6 +84,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/phase9-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/full-shop-acceptance.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase11-pilot-smoke.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase12-owner-email-smoke.sql
 
   browser_e2e:
     runs-on: ubuntu-latest
