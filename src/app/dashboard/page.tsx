@@ -5,12 +5,14 @@ import Link from "next/link";
 import { Activity, ArrowRight, BarChart3, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Copy, ExternalLink, LayoutDashboard, LogOut, Plus, Search, Settings, Users, Wrench, X } from "lucide-react";
 import { addDemoBooking, demoBookings, demoServices, demoShop, editDemoBooking, kstDate, money, updateDemoBooking } from "@/lib/demo";
 import { browserDb } from "@/lib/supabase";
-import type { Booking, Service, Shop } from "@/lib/types";
+import type { Booking, Service, Shop, WorkResource } from "@/lib/types";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import BookingOperations from "@/components/BookingOperations";
 import CustomerCRM from "@/components/CustomerCRM";
-type Tab="overview"|"calendar"|"workflow"|"bookings"|"customers"|"services"|"notifications"|"settings";
-const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"workflow",label:"작업 현황",icon:Wrench},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
+import ResourcesPanel from "@/components/ResourcesPanel";
+import {readDemoResources} from "@/lib/resources";
+type Tab="overview"|"calendar"|"workflow"|"bookings"|"customers"|"services"|"resources"|"notifications"|"settings";
+const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"workflow",label:"작업 현황",icon:Wrench},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"resources",label:"직원·리프트",icon:Settings},{id:"notifications",label:"알림 내역",icon:Activity},{id:"settings",label:"매장 설정",icon:Settings}];
 const statusText:Record<Booking["status"],string>={pending:"승인 대기",confirmed:"예약 확정",completed:"정비 완료",cancelled:"취소"};
 const koDate=(date:string)=>new Date(date).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
 function Dashboard(){
@@ -22,6 +24,7 @@ function Dashboard(){
 
   const [tab,setTab]=useState<Tab>("overview"),[shop,setShop]=useState<Shop|null>(isDemo?demoShop:null),[bookings,setBookings]=useState<Booking[]>([]),[services,setServices]=useState<Service[]>(isDemo?demoServices:[]),[loading,setLoading]=useState(!isDemo),[error,setError]=useState(""),[notice,setNotice]=useState("");
   const [selectedBookingId,setSelectedBookingId]=useState<string|null>(null);
+  const [resources,setResources]=useState<WorkResource[]>(isDemo?readDemoResources():[]);
   const [filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[month,setMonth]=useState(()=>{const d=kstDate(new Date());return d.slice(0,7);}),[showAdd,setShowAdd]=useState(false),[addForm,setAddForm]=useState({name:"",phone:"",vehicle:"",service:demoServices[0].id,day:kstDate(new Date()),time:"10:00"});
   type Hours = {shop_id:string;day_of_week:number;open_time:string;close_time:string;is_closed:boolean};
   type Blocked = {shop_id:string;blocked_date:string;reason:string|null};
@@ -29,17 +32,18 @@ function Dashboard(){
   const [blocked,setBlocked]=useState<Blocked[]>([]),[newBlocked,setNewBlocked]=useState("");
   const [editService,setEditService]=useState<Service|null>(null),[saving,setSaving]=useState(false),[shopForm,setShopForm]=useState<Shop|null>(isDemo?demoShop:null);
   const refresh=useCallback(async(s:Shop)=>{
-    if(isDemo){setBookings(demoBookings());return;}
+    if(isDemo){setBookings(demoBookings());setResources(readDemoResources());return;}
     if(!db)return;
-    const [{data:b,error:be},{data:svc,error:se},{data:h,error:he},{data:dates,error:de}]=await Promise.all([
+    const [{data:b,error:be},{data:svc,error:se},{data:h,error:he},{data:dates,error:de},{data:res,error:re}]=await Promise.all([
       db.from("bookings").select("*").eq("shop_id",s.id).order("starts_at",{ascending:false}).limit(500),
       db.from("services").select("*").eq("shop_id",s.id).order("sort_order",{ascending:true}),
       db.from("business_hours").select("*").eq("shop_id",s.id).order("day_of_week"),
-      db.from("blocked_dates").select("*").eq("shop_id",s.id).order("blocked_date")
+      db.from("blocked_dates").select("*").eq("shop_id",s.id).order("blocked_date"),
+      db.from("work_resources").select("*").eq("shop_id",s.id).order("created_at")
     ]);
-    if(be||se||he||de){setError("예약 정보를 불러오는 중 문제가 발생했습니다.");return;}
+    if(be||se||he||de||re){setError("예약 정보를 불러오는 중 문제가 발생했습니다.");return;}
     setBookings((b||[]) as Booking[]);setServices((svc||[]) as Service[]);
-    setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);
+    setHours((h||[]) as Hours[]);setBlocked((dates||[]) as Blocked[]);setResources((res||[]) as WorkResource[]);
   },[db,isDemo]);
   const refreshNotifications=useCallback(async(s:Shop)=>{
     if(isDemo||!db)return;
@@ -93,7 +97,7 @@ function Dashboard(){
   },[shop,db,isDemo,syncBookings]);
 
   useEffect(()=>{
-    if(isDemo){setBookings(demoBookings());setLoading(false);return;}
+    if(isDemo){setBookings(demoBookings());setResources(readDemoResources());setLoading(false);return;}
     if(!db){setLoading(false);setError("Supabase 연결이 필요합니다. 환경 변수를 설정한 후 다시 시도해 주세요.");return;}
     let live=true;
     (async()=>{
@@ -140,6 +144,16 @@ function Dashboard(){
           throw new Error("다른 예약과 시간이 겹칩니다. 시간을 변경해 주세요.");
         }
       }
+      const start=new Date(patch.starts_at||old.starts_at).getTime();
+      const end=new Date(patch.ends_at||old.ends_at).getTime();
+      const allocated=[patch.assigned_technician_id===undefined?old.assigned_technician_id:patch.assigned_technician_id,
+        patch.assigned_bay_id===undefined?old.assigned_bay_id:patch.assigned_bay_id].filter(Boolean);
+      if(allocated.some(id=>!resources.some(r=>r.id===id&&r.active)))throw new Error("비활성화됐거나 잘못된 작업 자원입니다.");
+      if(demoBookings().some(b=>b.id!==old.id&&["pending","confirmed"].includes(b.status)
+        && new Date(b.starts_at).getTime()<end&&new Date(b.ends_at).getTime()>start
+        && allocated.some(id=>id===b.assigned_technician_id||id===b.assigned_bay_id))){
+          throw new Error("선택한 정비사 또는 리프트가 이미 배정되어 있습니다.");
+      }
       editDemoBooking(old.id,patch);setBookings(demoBookings());
       setNotice("예약과 정비 기록을 저장했습니다.");return;
     }
@@ -147,6 +161,8 @@ function Dashboard(){
     const {error:saveError}=await db.from("bookings").update(patch)
       .eq("id",old.id).eq("shop_id",shop.id).select("id").single();
     if(saveError){
+      if(saveError.message.includes("RESOURCE_BUSY"))throw new Error("이미 다른 예약에 배정된 정비사·리프트입니다. 다른 자원을 선택해 주세요.");
+      if(saveError.message.includes("INVALID_RESOURCE"))throw new Error("선택한 직원·리프트가 비활성화됐거나 매장 소속이 아닙니다.");
       if(saveError.message.includes("SLOT_UNAVAILABLE"))throw new Error("해당 시간에는 예약이 불가능합니다. 영업시간이나 다른 예약을 확인해 주세요.");
       if(saveError.message.includes("INVALID_BOOKING"))throw new Error("정비 시간과 서비스 항목을 확인해 주세요.");
       if(saveError.message.includes("WORKFLOW_CLOSED")||saveError.message.includes("BOOKING_CLOSED"))throw new Error("완료 또는 취소된 예약은 이 항목을 변경할 수 없습니다.");
@@ -288,6 +304,8 @@ function Dashboard(){
             <td>{n.attempts}</td>
           </tr>)}</tbody></table></div>}
         </div>}
+        {tab==="resources"&&<ResourcesPanel shop={shop} isDemo={isDemo} resources={resources}
+          bookings={bookings} onUpdate={setResources}/>}
         {tab==="services"&&<div className="dash-panel"><div className="row-between"><h3>예약 가능 정비 항목</h3><button className="btn btn-dark" onClick={()=>setEditService({id:"new-"+crypto.randomUUID().slice(0,5),name:"",description:"",duration_minutes:60,price_from:null,icon:"🔧",approval_required:false})}><Plus size={16}/> 항목 추가</button></div><div className="service-options">{services.map(s=><button className="service-option" key={s.id} onClick={()=>setEditService(s)}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>소요 {s.duration_minutes}분 · {money(s.price_from)} · {s.approval_required?"승인 후 확정":"자동 확정"}</small></div><Settings style={{marginLeft:"auto",color:"#809084"}} size={17}/></button>)}</div></div>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>매장 기본 정보</h3><form onSubmit={saveShop}>{[["매장명","name"],["전화번호","phone"],["주소","address"],["매장 소개","description"]].map(([label,key])=><div className="field-group" key={key}><label className="field-label">{label}</label><input className="field" value={String(shopForm?.[key as keyof Shop]||"")} onChange={e=>setShopForm(old=>old?{...old,[key]:e.target.value}:old)} required={key==="name"}/></div>)}<div className="field-group"><label className="field-label">동시 예약 수용 건수</label><input className="field" type="number" min={1} max={10} value={shopForm?.slot_capacity||1} onChange={e=>setShopForm(old=>old?{...old,slot_capacity:Number(e.target.value)}:old)}/></div><div className="field-group"><label className="field-label">예약 페이지 주소</label><input className="field" readOnly value={"/book/"+shop.slug}/><small className="hint">매장 주소는 예약 링크 안정성을 위해 자동 발급되고 고정됩니다.</small></div><button className="btn btn-dark" disabled={saving} type="submit">{saving?"저장 중":"설정 저장"}</button></form></div>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>영업시간 및 예약 가능 시간</h3><p className="booking-help">매일의 예약 가능 시간을 설정합니다. 선택한 시간과 정비 소요 시간을 기준으로 고객에게 예약 슬롯이 제공됩니다.</p>
@@ -298,7 +316,7 @@ function Dashboard(){
       </main></div>
     {selectedBookingId&&bookings.some(b=>b.id===selectedBookingId)&&
       <BookingOperations key={selectedBookingId} booking={bookings.find(b=>b.id===selectedBookingId)!}
-        services={services} busy={saving} onClose={()=>setSelectedBookingId(null)} onSave={saveBooking}/>}
+        services={services} resources={resources} busy={saving} onClose={()=>setSelectedBookingId(null)} onSave={saveBooking}/>}
     {showAdd&&<div className="modal-backdrop" onClick={()=>setShowAdd(false)}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="닫기" onClick={()=>setShowAdd(false)}><X size={17}/></button><div className="booking-inner"><h2>전화·방문 예약 추가</h2><p className="booking-help">직접 추가한 예약은 캘린더에 표시됩니다.</p><form onSubmit={addManual}><div className="field-group"><label className="field-label">고객 이름</label><input className="field" required maxLength={80} value={addForm.name} onChange={e=>setAddForm({...addForm,name:e.target.value})}/></div><div className="field-group"><label className="field-label">휴대전화</label><input type="tel" className="field" required value={addForm.phone} onChange={e=>setAddForm({...addForm,phone:e.target.value})}/></div><div className="field-group"><label className="field-label">차량 모델</label><input className="field" value={addForm.vehicle} onChange={e=>setAddForm({...addForm,vehicle:e.target.value})}/></div><div className="field-group"><label className="field-label">정비 항목</label><select className="field" required value={addForm.service} onChange={e=>setAddForm({...addForm,service:e.target.value})}>{services.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><div className="field-group"><label className="field-label">날짜</label><input type="date" className="field" required value={addForm.day} onChange={e=>setAddForm({...addForm,day:e.target.value})}/></div><div className="field-group"><label className="field-label">시간</label><input type="time" className="field" required value={addForm.time} onChange={e=>setAddForm({...addForm,time:e.target.value})}/></div></div><button disabled={saving} className="btn btn-dark btn-wide" type="submit">예약 추가</button></form></div></div></div>}
     {editService&&<div className="modal-backdrop" onClick={()=>setEditService(null)}><div className="modal-card" onClick={e=>e.stopPropagation()}><button className="modal-close" aria-label="닫기" onClick={()=>setEditService(null)}><X size={17}/></button><form className="booking-inner" onSubmit={saveService}><h2>{editService.id.startsWith("new-")?"정비 항목 추가":"정비 항목 수정"}</h2><div className="field-group"><label className="field-label">서비스명</label><input className="field" required maxLength={80} value={editService.name} onChange={e=>setEditService({...editService,name:e.target.value})}/></div><div className="field-group"><label className="field-label">설명</label><input className="field" maxLength={200} value={editService.description||""} onChange={e=>setEditService({...editService,description:e.target.value})}/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div className="field-group"><label className="field-label">소요 시간 (분)</label><input className="field" type="number" min={30} max={480} step={10} required value={editService.duration_minutes} onChange={e=>setEditService({...editService,duration_minutes:Number(e.target.value)})}/></div><div className="field-group"><label className="field-label">시작 가격 (원)</label><input className="field" type="number" min={0} value={editService.price_from??""} onChange={e=>setEditService({...editService,price_from:e.target.value===""?null:Number(e.target.value)})}/></div></div><div className="field-group"><label className="field-label">아이콘 (이모지)</label><input className="field" value={editService.icon} onChange={e=>setEditService({...editService,icon:e.target.value})}/></div><label className="checkbox" style={{marginBottom:21}}><input type="checkbox" checked={Boolean(editService.approval_required)} onChange={e=>setEditService({...editService,approval_required:e.target.checked})}/> 관리자 승인 후 예약 확정</label><button disabled={saving} className="btn btn-dark btn-wide" type="submit">{saving?"저장 중...":"저장하기"}</button></form></div></div>}
   </div>;
