@@ -40,7 +40,10 @@ export default function BookingOperations({
  const currentStage=(booking.work_stage||"scheduled") as Stage;
  const closed=booking.status==="cancelled"||booking.status==="completed";
  const selected=services.find(s=>s.id===service)||services.find(s=>s.id===booking.service_id);
- const duration=selected?.duration_minutes??Math.round((new Date(booking.ends_at).getTime()-new Date(booking.starts_at).getTime())/60000);
+ const multiple=Boolean(booking.selected_service_ids&&booking.selected_service_ids.length>1);
+ const duration=multiple
+   ?Math.round((new Date(booking.ends_at).getTime()-new Date(booking.starts_at).getTime())/60000)
+   :selected?.duration_minutes??Math.round((new Date(booking.ends_at).getTime()-new Date(booking.starts_at).getTime())/60000);
  // Changing a selection after booking has already started should remain read-only.
  const editableSchedule=!closed;
  useEffect(()=>{setMessage("");},[booking.id]);
@@ -116,10 +119,11 @@ export default function BookingOperations({
        </div>
        <label className="field-group"><span className="field-label">차량 모델</span><input className="field" maxLength={100} value={vehicle} onChange={e=>setVehicle(e.target.value)}/></label>
        <label className="field-group"><span className="field-label">정비 항목</span>
-         <select className="field" value={service} disabled={!editableSchedule} onChange={e=>setService(e.target.value)}>
+         <select className="field" value={service} disabled={!editableSchedule||multiple} onChange={e=>setService(e.target.value)}>
           {services.map(s=><option key={s.id} value={s.id}>{s.name} · {s.duration_minutes}분</option>)}
          </select>
        </label>
+       {multiple&&<p className="hint">고객이 선택한 전체 정비 항목: <strong>{booking.service_name}</strong> · 총 {duration}분. 복수 항목은 예약 후 서비스 변경이 제한되며, 일정·고객 정보·담당자 배정은 수정할 수 있습니다.</p>}
        <div className="ops-form-grid">
          <label className="field-group"><span className="field-label">방문 날짜</span><input className="field" type="date" disabled={!editableSchedule} required value={day} onChange={e=>setDay(e.target.value)}/></label>
          <label className="field-group"><span className="field-label">방문 시간 (30분 단위)</span><input className="field" type="time" step={1800} disabled={!editableSchedule} required value={time} onChange={e=>setTime(e.target.value)}/></label>
