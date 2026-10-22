@@ -1,14 +1,14 @@
 -- Phase 13: multi-service customer booking, manual approval default and customer link.
 DO $$
 DECLARE
- shop_id uuid;svc1 uuid;svc2 uuid;day date;v jsonb;bid uuid;token text;dur int;
+ v_shop uuid;svc1 uuid;svc2 uuid;day date;v jsonb;bid uuid;token text;dur int;
 BEGIN
  INSERT INTO auth.users(id) VALUES('b347bf19-c2c9-41e4-9b3f-112255663388');
  INSERT INTO public.shops(owner_id,name,slug,slot_capacity)
  VALUES('b347bf19-c2c9-41e4-9b3f-112255663388','Multi service test','multi-services-test',1)
- RETURNING id INTO shop_id;
- SELECT id INTO svc1 FROM public.services WHERE shop_id=shop_id AND name='엔진오일 교환';
- SELECT id INTO svc2 FROM public.services WHERE shop_id=shop_id AND name='브레이크 점검';
+ RETURNING id INTO v_shop;
+ SELECT id INTO svc1 FROM public.services WHERE shop_id=v_shop AND name='엔진오일 교환';
+ SELECT id INTO svc2 FROM public.services WHERE shop_id=v_shop AND name='브레이크 점검';
  SELECT min(x::date) INTO day FROM generate_series(current_date+2,current_date+10,'1 day'::interval) x
  WHERE extract(dow from x) between 1 and 5;
  IF svc1 IS NULL OR svc2 IS NULL THEN RAISE EXCEPTION 'SERVICES_NOT_SEEDED';END IF;
