@@ -76,7 +76,10 @@ export default function CustomerManage(){
     if(!editing||!day||!token)return;
     let active=true;setTime("");setSlots([]);setLoadingSlots(true);setError("");
     if(isDemo){
-      const service=demoServices.find(s=>s.name===booking?.service_name)||demoServices[0];
+      const current=demoBookings().find(b=>b.id===booking?.booking_id);
+      const chosen=demoServices.filter(s=>current?.selected_service_ids?.includes(s.id));
+      const original=demoServices.find(s=>s.name===booking?.service_name)||demoServices[0];
+      const service=chosen.length?{...chosen[0],duration_minutes:chosen.reduce((sum,s)=>sum+s.duration_minutes,0)}:original;
       const filtered=demoSlots(day,service).map(s=>{
         const bookings=demoBookings().filter(b=>b.id!==booking?.booking_id &&
           ["pending","confirmed"].includes(b.status));
@@ -153,7 +156,7 @@ export default function CustomerManage(){
     <main className="booking-shell"><div className="booking-inner">
       <span className="eyebrow">CUSTOMER BOOKING</span>
       <h1 className="booking-h2" style={{marginTop:13}}>예약 확인 · 변경 · 취소</h1>
-      <p className="booking-help">예약 완료 시 받은 개인 예약 관리 링크를 이용하세요. 휴대전화 번호만으로는 개인정보를 조회할 수 없어요.</p>
+      <p className="booking-help">예약 완료 화면에서 받은 개인 예약 관리 링크를 안전하게 저장하거나 북마크해 주세요. 나중에 이 페이지에서 링크를 붙여넣으면 승인 상태를 확인하고 변경·취소할 수 있어요. 보안상 휴대전화 번호만으로는 조회할 수 없습니다. 링크를 잃었다면 정비소에 직접 문의해 주세요.</p>
       {!booking&&<form onSubmit={e=>{e.preventDefault();void load(getToken(input));}}>
         <div className="field-group"><label className="field-label">예약 관리 링크 또는 확인 코드</label>
           <textarea className="field" rows={3} value={input} onChange={e=>setInput(e.target.value)} placeholder="예약 완료 후 복사한 링크를 붙여넣으세요" autoComplete="off" spellCheck={false}/></div>
