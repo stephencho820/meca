@@ -29,6 +29,7 @@ export type Booking = {
   shop_id: string;
   service_id: string | null;
   service_name: string;
+  selected_service_ids?: string[] | null;
   customer_id?: string | null;
   assigned_technician_id?: string | null;
   assigned_bay_id?: string | null;
