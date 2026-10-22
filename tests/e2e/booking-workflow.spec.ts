@@ -20,7 +20,7 @@ test("customer demo books, looks up, then cancels using the private link",async(
   await page.locator("#customer-vehicle").fill("테스트 차량");
   await page.locator(".checkbox input").check();
   await page.getByRole("button",{name:/예약 접수하기/}).click();
-  await expect(page.getByText("예약이 접수됐어요!",{exact:false})).toBeVisible();
+  await expect(page.getByText("예약 요청이 접수됐어요!",{exact:false})).toBeVisible();
   await page.getByRole("link",{name:/내 예약 확인.*변경하기/}).click();
   await expect(page.getByText("테스트 예약자")).toBeVisible();
   await expect(page.getByRole("button",{name:"예약 취소"})).toBeEnabled();
