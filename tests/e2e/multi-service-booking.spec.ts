@@ -10,6 +10,7 @@ test("customer can choose multiple repairs, append symptom and submit for approv
  let found=false;
  for(let i=2;i<12;i++){
    await page.locator(".day-pill").nth(i).click();
+   await page.waitForTimeout(150); // wait for React availability refresh
    const first=page.locator(".time-pill:not([disabled])").first();
    if(await first.count()){await first.click();found=true;break;}
  }
