@@ -107,7 +107,7 @@ begin
   if coalesce(p_token,'') !~ '^[0-9a-f]{64}$' or p_day is null
     or p_day < (now() at time zone 'Asia/Seoul')::date
     or p_day > (now() at time zone 'Asia/Seoul')::date + 30 then return; end if;
-  select x.id,x.shop_id,x.service_id,x.status,sh.slot_capacity,extract(epoch from (x.ends_at-x.starts_at))/60 as duration_minutes
+  select x.id,x.shop_id,x.service_id,x.status,sh.slot_capacity,round(extract(epoch from (x.ends_at-x.starts_at))/60)::integer as duration_minutes
     into b from public.bookings x
     join public.shops sh on sh.id=x.shop_id
     join public.services svc on svc.id=x.service_id and svc.shop_id=sh.id
@@ -145,7 +145,7 @@ begin
      or p_action not in ('cancel','reschedule')
   then raise exception 'INVALID_MANAGEMENT_LINK'; end if;
   select x.id,x.shop_id,x.service_id,x.starts_at,x.status,sh.slug,
-    sh.slot_capacity,extract(epoch from (x.ends_at-x.starts_at))/60 as duration_minutes
+    sh.slot_capacity,round(extract(epoch from (x.ends_at-x.starts_at))/60)::integer as duration_minutes
   into b from public.bookings x
   join public.shops sh on sh.id=x.shop_id
   join public.services svc on svc.id=x.service_id and svc.shop_id=sh.id
