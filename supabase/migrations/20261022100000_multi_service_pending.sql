@@ -4,7 +4,7 @@ alter table public.bookings add column if not exists selected_service_ids uuid[]
 -- A new multi-service booking records a fixed snapshot of requested services.
 create or replace function meca_private.guard_booking()
 returns trigger language plpgsql security definer set search_path = ''
-as $
+as $$
 declare
   v_shop record;
   v_service record;
@@ -95,7 +95,7 @@ begin
   ) then raise exception 'SLOT_UNAVAILABLE'; end if;
   return new;
 end;
-$;
+$$;
 -- Existing client management links must reserve the full combined duration.
 create or replace function public.customer_manage_slots(p_token text,p_day date)
 returns table(time_label text,available boolean)
