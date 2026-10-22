@@ -9,8 +9,8 @@ begin
  select min(d::date) into day from generate_series(current_date+2,current_date+8,interval '1 day') d
   where extract(dow from d) between 1 and 5;
  bid:=public.create_public_booking('meca-notify-test',service_id,day,'10:00','Tester','01012345678');
- if (select count(*) from public.notification_outbox where booking_id=bid and event_type='confirmed')<>1
- then raise exception 'NO_CONFIRMATION_EVENT'; end if;
+ if (select count(*) from public.notification_outbox where booking_id=bid and event_type='requested')<>1
+ then raise exception 'NO_REQUEST_EVENT'; end if;
  update public.bookings set status='cancelled' where id=bid;
  if (select count(*) from public.notification_outbox where booking_id=bid and event_type='cancelled')<>1
  then raise exception 'NO_CANCELLATION_EVENT'; end if;
