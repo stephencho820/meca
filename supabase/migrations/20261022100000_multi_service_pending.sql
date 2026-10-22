@@ -4,7 +4,7 @@ alter table public.bookings add column if not exists selected_service_ids uuid[]
 -- A new multi-service booking records a fixed snapshot of requested services.
 create or replace function meca_private.guard_booking()
 returns trigger language plpgsql security definer set search_path = ''
-as $$
+as $
 declare
   v_shop record;
   v_service record;
@@ -17,14 +17,12 @@ declare
   v_check boolean := false;
 begin
   if tg_op = 'INSERT' then
-    -- All customer web bookings need explicit approval by default, including
-    -- older public booking RPC signatures that request confirmed.
     if new.source='web' then new.status:='pending';end if;
     v_check := new.status in ('pending','confirmed');
   else
     if new.shop_id is distinct from old.shop_id
-      or new.service_id is distinct from old.service_id
       or new.selected_service_ids is distinct from old.selected_service_ids
+      or (old.selected_service_ids is not null and new.service_id is distinct from old.service_id)
     then
       raise exception 'IMMUTABLE_BOOKING';
     end if;
@@ -32,7 +30,8 @@ begin
     v_check := new.status in ('pending','confirmed')
       and (old.status not in ('pending','confirmed')
         or new.starts_at is distinct from old.starts_at
-        or new.ends_at is distinct from old.ends_at);
+        or new.ends_at is distinct from old.ends_at
+        or new.service_id is distinct from old.service_id);
   end if;
 
   if not v_check then return new; end if;
@@ -96,7 +95,7 @@ begin
   ) then raise exception 'SLOT_UNAVAILABLE'; end if;
   return new;
 end;
-$$;
+$;
 -- Existing client management links must reserve the full combined duration.
 create or replace function public.customer_manage_slots(p_token text,p_day date)
 returns table(time_label text,available boolean)
