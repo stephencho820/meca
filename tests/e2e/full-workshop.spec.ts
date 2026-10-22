@@ -9,6 +9,7 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
   let found=false;
   for(let i=2;i<12;i++){
     await page.locator(".day-pill").nth(i).click();
+    await page.waitForTimeout(150); // wait for React availability refresh
     const slot=page.locator(".time-pill:not([disabled])").first();
     if(await slot.count()){
       await slot.click();found=true;break;
