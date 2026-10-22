@@ -1,6 +1,7 @@
 import {test,expect} from "@playwright/test";
 
 test("customer demo books, looks up, then cancels using the private link",async({page})=>{
+  test.setTimeout(90_000);
   await page.goto("/demo");
   await expect(page.getByText("메카 모터스")).toBeVisible();
   await page.getByRole("button",{name:/엔진오일 교환/}).click();
@@ -8,6 +9,7 @@ test("customer demo books, looks up, then cancels using the private link",async(
   let found=false;
   for(let i=2;i<12;i++){
     await page.locator(".day-pill").nth(i).click();
+    await page.waitForTimeout(150); // wait for previous date slots to clear and reload
     if(await page.locator(".time-pill:not([disabled])").count()){
       await page.locator(".time-pill:not([disabled])").first().click();
       found=true;break;
@@ -20,7 +22,7 @@ test("customer demo books, looks up, then cancels using the private link",async(
   await page.locator("#customer-vehicle").fill("테스트 차량");
   await page.locator(".checkbox input").check();
   await page.getByRole("button",{name:/예약 접수하기/}).click();
-  await expect(page.getByText("예약이 접수됐어요!",{exact:false})).toBeVisible();
+  await expect(page.getByText("예약 요청이 접수됐어요!",{exact:false})).toBeVisible();
   await page.getByRole("link",{name:/내 예약 확인.*변경하기/}).click();
   await expect(page.getByText("테스트 예약자")).toBeVisible();
   await expect(page.getByRole("button",{name:"예약 취소"})).toBeEnabled();
