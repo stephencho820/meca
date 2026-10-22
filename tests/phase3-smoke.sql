@@ -19,7 +19,7 @@ begin
  if public.lookup_customer_booking(repeat('0',64)) is not null
  then raise exception 'INVALID_TOKEN_ACCEPTED'; end if;
  snapshot:=public.lookup_customer_booking(token);
- if snapshot->>'customer_name'<>'Alice' or snapshot->>'status'<>'confirmed'
+ if snapshot->>'customer_name'<>'Alice' or snapshot->>'status'<>'pending'
  then raise exception 'LOOKUP_FAILED'; end if;
  if snapshot::text like '%01012345678%'
  then raise exception 'FULL_PHONE_EXPOSED'; end if;
