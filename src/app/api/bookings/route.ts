@@ -32,6 +32,12 @@ export async function POST(request:NextRequest){
      ||body.privacy_consent!==true)
     return NextResponse.json({error:"예약 정보를 다시 확인해 주세요.",code:"INVALID_BOOKING"},{status:400});
 
+
+  const requested=body.service_ids;
+  const serviceIds=Array.isArray(requested)?requested:[service];
+  if(serviceIds.length<1||serviceIds.length>5||serviceIds.some(s=>typeof s!=="string"||!validUuid(s))
+     ||new Set(serviceIds).size!==serviceIds.length||serviceIds[0]!==service)
+    return NextResponse.json({error:"정비 항목을 다시 선택해 주세요.",code:"INVALID_BOOKING"},{status:400});
   const human=await verifyHuman(request,body.turnstile_token);
   if(human!=="ok"){
     const unavailable=human==="unavailable";
@@ -42,8 +48,8 @@ export async function POST(request:NextRequest){
   }
   const db=publicDb();
   if(!db)return NextResponse.json({error:"예약 서버가 연결되지 않았습니다."},{status:503});
-  const {data,error}=await db.rpc("create_public_booking_v2",{
-    p_shop_slug:shop,p_service_id:service,p_day:date,p_time:time,
+  const {data,error}=await db.rpc("create_public_booking_multi",{
+    p_shop_slug:shop,p_service_ids:serviceIds,p_day:date,p_time:time,
     p_customer_name:customer,p_customer_phone:phone,
     p_vehicle_model:vehicle,p_notes:notes
   });
