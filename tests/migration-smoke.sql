@@ -22,7 +22,7 @@ begin
   if v_count<>1 then raise exception 'Expected bookable 10:00 time slot, got %',v_count; end if;
   v_booking:=public.create_public_booking('meca-sql-test',v_service,v_day,'10:00','홍길동','01012345678','쏘렌토','테스트 예약');
   if v_booking is null then raise exception 'Booking creation failed'; end if;
-  select count(*) into v_count from public.bookings where id=v_booking and status='confirmed' and source='web';
+  select count(*) into v_count from public.bookings where id=v_booking and status='pending' and source='web';
   if v_count<>1 then raise exception 'Booking not persisted with expected status'; end if;
   begin
     perform public.create_public_booking('meca-sql-test',v_service,v_day,'10:00','테스트 고객','01012345678','','');
