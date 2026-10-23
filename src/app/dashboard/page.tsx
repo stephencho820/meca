@@ -134,8 +134,15 @@ function Dashboard(){
         localStorage.removeItem("meca-pending-shop");
         setNotice("무료 파일럿 준비가 완료됐어요. 운영 정보를 확인한 후 고객 예약을 직접 열어 주세요.");
       }
-      if(!s&&["misterm","owner-test"].includes(window.sessionStorage.getItem("meca-pilot-onboarding")||"")){
-        setError("전용 초대 코드를 먼저 입력해야 합니다. 파일럿 준비 페이지에서 코드를 입력해 주세요.");
+      // Mobile mail apps often open verification in a different browser.
+      // The session-scoped pilot invite is intentionally not transferable,
+      // but its *non-secret* intent is preserved in account metadata so a
+      // pilot signup never silently creates an ordinary public shop.
+      const pilotIntent=window.sessionStorage.getItem("meca-pilot-onboarding")||
+        (typeof user.user_metadata?.pilot_intent==="string"?user.user_metadata.pilot_intent:"");
+      if(!s&&["misterm","owner-test"].includes(pilotIntent)){
+        setError("전용 초대 코드가 필요합니다. "+(pilotIntent==="owner-test"
+          ?"/pilot/owner-test":"/pilot/misterm")+" 페이지에서 코드를 다시 입력해 주세요.");
         setLoading(false);return;
       }
       if(!s){
