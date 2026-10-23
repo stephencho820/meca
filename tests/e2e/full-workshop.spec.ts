@@ -10,7 +10,9 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
   for(let i=2;i<12;i++){
     await page.locator(".day-pill").nth(i).click();
     const slot=page.locator(".time-pill:not([disabled])").first();
-    if(await slot.count()){
+    // React publishes demo availability after the date state has rerendered.
+    // Do not inspect count synchronously: CI browsers can miss every slot.
+    if(await slot.waitFor({state:"visible",timeout:1500}).then(()=>true).catch(()=>false)){
       await slot.click();found=true;break;
     }
   }
@@ -30,9 +32,8 @@ test("complete end-to-end workshop day: booking, reschedule, assignment, repair,
     await page.locator(".day-pill").nth(i).click();
     // The demo computes replacement slots in a React effect after the date
     // rerender. Let the previous grid unmount before selecting a new slot.
-    await page.waitForTimeout(120);
     const available=page.locator(".time-pill:not([disabled])").first();
-    if(await available.count()){
+    if(await available.waitFor({state:"visible",timeout:1500}).then(()=>true).catch(()=>false)){
       await available.click();reschedule=true;break;
     }
   }

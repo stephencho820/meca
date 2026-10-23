@@ -11,7 +11,9 @@ test("customer can choose multiple repairs, append symptom and submit for approv
  for(let i=2;i<12;i++){
    await page.locator(".day-pill").nth(i).click();
    const first=page.locator(".time-pill:not([disabled])").first();
-   if(await first.count()){await first.click();found=true;break;}
+   if(await first.waitFor({state:"visible",timeout:1500}).then(()=>true).catch(()=>false)){
+     await first.click();found=true;break;
+   }
  }
  expect(found).toBeTruthy();
  await page.getByRole("button",{name:/다음/}).click();
