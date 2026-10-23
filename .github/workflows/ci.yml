@@ -87,6 +87,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/phase11-pilot-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase12-owner-email-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase13-multi-service.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase14-approval-and-relookup.sql
 
   browser_e2e:
     runs-on: ubuntu-latest
