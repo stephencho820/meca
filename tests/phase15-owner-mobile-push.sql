@@ -11,6 +11,9 @@ begin
  update meca_private.owner_push_worker_config
  set token_hash=encode(extensions.digest(v_key,'sha256'),'hex')
  where id=1;
+ if has_function_privilege('anon','public.claim_owner_push_test(uuid)','EXECUTE')
+   or not has_function_privilege('authenticated','public.claim_owner_push_test(uuid)','EXECUTE')
+ then raise exception 'TEST_ENDPOINT_AUTH_BROKEN';end if;
  if public.owner_push_worker_ready(repeat('0',64)) or not public.owner_push_worker_ready(v_key)
  then raise exception 'WORKER_AUTH_BROKEN';end if;
  if has_table_privilege('anon','public.owner_push_subscriptions','SELECT')
@@ -35,6 +38,7 @@ begin
  select min(t::date) into v_day from generate_series(current_date+3,current_date+13,'1 day'::interval)t
  where extract(dow from t) between 1 and 5;
  if v_service is null or v_day is null then raise exception 'FIXTURE_MISSING';end if;
+ if public.claim_owner_push_test(v_shop) then raise exception 'UNAUTHENTICATED_TEST_ALLOWED';end if;
  v_payload:=public.create_public_booking_v2(v_slug,v_service,v_day,'10:00',
  'Push Customer','01098980000','Fake Car','Fake Note');
  v_booking:=(v_payload->>'booking_id')::uuid;
