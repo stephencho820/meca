@@ -1,5 +1,6 @@
 import { processNotificationQueue } from "@/lib/notifications";
 import {deliverOwnerEmailJobs} from "@/lib/owner-email";
+import {processOwnerPushQueue} from "@/lib/owner-push";
 import { NextRequest, NextResponse } from "next/server";
 import { publicDb } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function POST(request:NextRequest){
   if(action==="lookup"&&result==null)
     return NextResponse.json({error:"예약 관리 링크를 찾을 수 없습니다.",code:"NOT_FOUND"},{status:404,headers:noStore});
   if(["cancel","reschedule"].includes(action) && result?.booking_id){
+    try{await processOwnerPushQueue(result.booking_id);}catch{/* push queue retained */}
     try{await deliverOwnerEmailJobs(result.booking_id);}catch{/* durable outbox kept */}
     try{await processNotificationQueue(result.booking_id);}catch{/* state change was committed */}
   }
