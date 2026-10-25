@@ -13,6 +13,7 @@ import ResourcesPanel from "@/components/ResourcesPanel";
 import PrivacyReview from "@/components/PrivacyReview";
 import OwnerEmailSettings from "@/components/OwnerEmailSettings";
 import OwnerBrowserAlerts from "@/components/OwnerBrowserAlerts";
+import OwnerMobilePushSettings from "@/components/OwnerMobilePushSettings";
 import {readDemoResources} from "@/lib/resources";
 type Tab="overview"|"calendar"|"workflow"|"bookings"|"customers"|"services"|"resources"|"notifications"|"privacy"|"settings";
 const tabs:{id:Tab;label:string;icon:typeof LayoutDashboard}[]=[{id:"overview",label:"대시보드",icon:LayoutDashboard},{id:"calendar",label:"예약 캘린더",icon:CalendarDays},{id:"workflow",label:"작업 현황",icon:Wrench},{id:"bookings",label:"예약 관리",icon:ClipboardList},{id:"customers",label:"고객 관리",icon:Users},{id:"services",label:"서비스 관리",icon:Wrench},{id:"resources",label:"직원·리프트",icon:Settings},{id:"notifications",label:"알림 내역",icon:Activity},{id:"privacy",label:"개인정보 요청",icon:Users},{id:"settings",label:"매장 설정",icon:Settings}];
@@ -295,7 +296,27 @@ function Dashboard(){
     if(!isDemo&&db){const {error:e}=await db.from("blocked_dates").delete().eq("shop_id",shop.id).eq("blocked_date",date);if(e){setError("휴무일 삭제에 실패했습니다.");return;}}
     setBlocked(x=>x.filter(b=>b.blocked_date!==date));setNotice("휴무일을 삭제했습니다.");
   };
-  const logout=async()=>{if(db)await db.auth.signOut();router.push("/");};
+  const logout=async()=>{
+    // A shared phone must not keep receiving workshop updates after logout.
+    if(db&&!isDemo&&shop&&typeof navigator!=="undefined"&&"serviceWorker" in navigator){
+      try{
+        const registration=await navigator.serviceWorker.getRegistration("/");
+        const sub=await registration?.pushManager.getSubscription();
+        const {data}=await db.auth.getSession();
+        const token=data.session?.access_token;
+        if(sub&&token){
+          const response=await fetch("/api/owner-push",{
+            method:"DELETE",headers:{
+              Authorization:"Bearer "+token,"Content-Type":"application/json"
+            },body:JSON.stringify({shop_id:shop.id,endpoint:sub.endpoint})
+          });
+          if(response.ok)await sub.unsubscribe();
+        }
+      }catch{/* Logout always remains possible if an offline unsubscribe fails. */}
+    }
+    if(db)await db.auth.signOut();
+    router.push("/");
+  };
   const filtered=bookings.filter(b=>(filter==="all"||b.status===filter)&&(b.customer_name.includes(query)||b.customer_phone.includes(query)||b.service_name.includes(query)));
   const navigateMonth=(delta:number)=>{const d=new Date(month+"-01T12:00:00+09:00");d.setUTCMonth(d.getUTCMonth()+delta);setMonth(kstDate(d).slice(0,7));};
   const calendarDays=useMemo(()=>{
@@ -392,6 +413,7 @@ function Dashboard(){
           bookings={bookings} onUpdate={setResources}/>}
         {tab==="privacy"&&<PrivacyReview shop={shop} isDemo={isDemo}/>}
         {tab==="services"&&<div className="dash-panel"><div className="row-between"><h3>예약 가능 정비 항목</h3><button className="btn btn-dark" onClick={()=>setEditService({id:"new-"+crypto.randomUUID().slice(0,5),name:"",description:"",duration_minutes:60,price_from:null,icon:"🔧",approval_required:Boolean(pilot),active:true})}><Plus size={16}/> 항목 추가</button></div><div className="service-options">{services.map(s=><button className="service-option" key={s.id} onClick={()=>setEditService(s)}><div className="service-emoji">{s.icon||"🔧"}</div><div><strong>{s.name}</strong><small>소요 {s.duration_minutes}분 · {money(s.price_from)} · 온라인 예약 승인 대기 · {s.active===false?"비활성":"활성"}</small></div><Settings style={{marginLeft:"auto",color:"#809084"}} size={17}/></button>)}</div></div>}
+        {tab==="settings"&&<OwnerMobilePushSettings shopId={shop.id} isDemo={isDemo}/>}
         <OwnerBrowserAlerts shopId={shop.id} bookings={bookings} showSettings={tab==="settings"} isDemo={isDemo}/>
         {tab==="settings"&&<OwnerEmailSettings shop={shop} isDemo={isDemo}/>}
         {tab==="settings"&&<div className="dash-panel" style={{maxWidth:680}}><h3>매장 기본 정보</h3><form onSubmit={saveShop}>{[["매장명","name"],["전화번호","phone"],["주소","address"],["매장 소개","description"],["개인정보 처리방침 HTTPS 주소","privacy_policy_url"]].map(([label,key])=><div className="field-group" key={key}><label className="field-label">{label}</label><input className="field" value={String(shopForm?.[key as keyof Shop]||"")} onChange={e=>setShopForm(old=>old?{...old,[key]:e.target.value}:old)} required={key==="name"}/></div>)}<div className="field-group"><label className="field-label">동시 예약 수용 건수</label><input className="field" type="number" min={1} max={10} value={shopForm?.slot_capacity||1} onChange={e=>setShopForm(old=>old?{...old,slot_capacity:Number(e.target.value)}:old)}/></div><div className="field-group"><label className="field-label">예약 페이지 주소</label><input className="field" readOnly value={"/book/"+shop.slug}/><small className="hint">매장 주소는 예약 링크 안정성을 위해 자동 발급되고 고정됩니다.</small></div><button className="btn btn-dark" disabled={saving} type="submit">{saving?"저장 중":"설정 저장"}</button></form></div>}

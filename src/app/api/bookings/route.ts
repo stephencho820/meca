@@ -1,7 +1,8 @@
 import {verifyHuman} from "@/lib/turnstile";
 import { processNotificationQueue } from "@/lib/notifications";
 import {deliverOwnerEmailJobs} from "@/lib/owner-email";
-import { NextRequest, NextResponse } from "next/server";
+import {processOwnerPushQueue} from "@/lib/owner-push";
+import { NextRequest, NextResponse, after } from "next/server";
 import { publicDb } from "@/lib/supabase";
 
 const validUuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -64,8 +65,16 @@ export async function POST(request:NextRequest){
   }
   // Transactional outbox is already committed by the booking trigger. Sending
   // is best-effort and never makes the successfully created booking fail.
-  try{await deliverOwnerEmailJobs(data.booking_id);}catch{/* durable outbox kept for retry */}
-  try{await processNotificationQueue(data.booking_id);}catch{/* outbox retained for operators */}
+  // Delivery must not block the customer from receiving their private
+  // reservation management link. Next.js after() keeps best-effort work alive
+  // after this successful HTTP response; the DB outboxes remain durable.
+  after(async()=>{
+    await Promise.allSettled([
+      processOwnerPushQueue(data.booking_id),
+      deliverOwnerEmailJobs(data.booking_id),
+      processNotificationQueue(data.booking_id)
+    ]);
+  });
   return NextResponse.json({booking_id:data.booking_id,manage_token:data.manage_token},
     {status:201,headers:{"Cache-Control":"no-store","Referrer-Policy":"no-referrer"}});
 }

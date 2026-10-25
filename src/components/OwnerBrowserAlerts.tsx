@@ -26,13 +26,20 @@ export default function OwnerBrowserAlerts({shopId,bookings,showSettings,isDemo}
      &&Date.now()-new Date(b.created_at).getTime()<180_000);
    bookings.forEach(b=>seen.current!.add(b.id));
    if(!fresh.length||!enabled||isDemo||!("Notification" in window)||Notification.permission!=="granted")return;
-   try{
-     const alert=new Notification("MECA · 새 예약 승인 대기",{
-       body:"새 고객 예약이 접수되었습니다. 관리자에서 확인해 주세요.",
-       tag:"meca-new-"+fresh[0].id
-     });
-     alert.onclick=()=>{window.focus();alert.close();};
-   }catch{/* Safari/private mode can restrict notifications. */}
+   void (async()=>{
+     try{
+       // Avoid duplicate phone + in-tab notifications on the same device.
+       if("serviceWorker" in navigator){
+         const registration=await navigator.serviceWorker.getRegistration("/");
+         if(registration?.pushManager&&await registration.pushManager.getSubscription())return;
+       }
+       const alert=new Notification("MECA · 새 예약 승인 대기",{
+         body:"새 고객 예약이 접수되었습니다. 관리자에서 확인해 주세요.",
+         tag:"meca-new-"+fresh[0].id
+       });
+       alert.onclick=()=>{window.focus();alert.close();};
+     }catch{/* Safari/private mode can restrict notifications. */}
+   })();
  },[bookings,enabled,isDemo]);
  async function enable(){
    if(!("Notification" in window)){setNotice("이 브라우저는 알림을 지원하지 않습니다.");return;}

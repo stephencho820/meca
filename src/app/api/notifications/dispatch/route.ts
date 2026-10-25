@@ -1,6 +1,7 @@
 import { NextRequest,NextResponse } from "next/server";
 import {publicDb} from "@/lib/supabase";
 import {processNotificationQueue} from "@/lib/notifications";
+import {processOwnerPushQueue} from "@/lib/owner-push";
 export const runtime="nodejs";
 const uuid=/^[a-f\d]{8}-[a-f\d]{4}-[1-8][a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
 export async function POST(request:NextRequest){
@@ -23,6 +24,10 @@ export async function POST(request:NextRequest){
  const {data:booking,error}=await owner.from("bookings").select("id")
    .eq("id",bookingId).maybeSingle();
  if(error||!booking)return NextResponse.json({error:"Forbidden"},{status:403});
- try{return NextResponse.json(await processNotificationQueue(bookingId));}
+ try{
+   const push=await processOwnerPushQueue(bookingId);
+   const kakao=await processNotificationQueue(bookingId);
+   return NextResponse.json({push,kakao});
+ }
  catch{return NextResponse.json({error:"Dispatch unavailable"},{status:500});}
 }

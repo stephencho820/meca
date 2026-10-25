@@ -74,6 +74,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021230000_pilot_invites.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261021240000_owner_email_alerts.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261022100000_multi_service_pending.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025050500_owner_mobile_push.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261025060000_owner_push_test_throttle.sql
           psql -v ON_ERROR_STOP=1 -f tests/migration-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase2-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase3-smoke.sql
@@ -88,6 +90,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/phase12-owner-email-smoke.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase13-multi-service.sql
           psql -v ON_ERROR_STOP=1 -f tests/phase14-approval-and-relookup.sql
+          psql -v ON_ERROR_STOP=1 -f tests/phase15-owner-mobile-push.sql
 
   browser_e2e:
     runs-on: ubuntu-latest
