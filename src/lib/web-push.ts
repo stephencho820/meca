@@ -49,7 +49,7 @@ function vapidJwt(endpoint:string,creds:VapidConfig){
     sub:creds.subject
   }));
   const input=header+"."+payload;
-  const privateKey=createPrivateKey({key:creds.privateJwk,format:"jwk"});
+  const privateKey=createPrivateKey({key:creds.privateJwk as unknown as import("node:crypto").JsonWebKey,format:"jwk"});
   const signature=sign("sha256",Buffer.from(input),{key:privateKey,dsaEncoding:"ieee-p1363"});
   return input+"."+urlSafe(signature);
 }
