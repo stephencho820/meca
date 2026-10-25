@@ -43,16 +43,17 @@ export async function processOwnerPushQueue(bookingId?:string){
         if(!subs.length){
           reason="NO_SUBSCRIBERS";
         }else{
-          const results:PushOutcome[]=[];
-          for(const sub of subs){
+          // Devices are independent. Avoid delaying work by N * 8s if one
+          // phone's browser push service is unreachable.
+          const results:PushOutcome[]=await Promise.all(subs.map(async sub=>{
             const result=await sendOwnerWebPush(sub,{id:job.id,event_type:job.event_type});
-            results.push(result);
             if(result==="gone"){
               await db.rpc("prune_owner_push_subscription",{
                 p_token:token,p_subscription_id:sub.id
-              });
+              }).catch(()=>null);
             }
-          }
+            return result;
+          }));
           if(results.includes("submitted")){
             status="submitted";reason=results.some(r=>r!=="submitted")?"PARTIAL_GATEWAY_ACCEPTANCE":null;
           }else if(results.every(r=>r==="gone")){
