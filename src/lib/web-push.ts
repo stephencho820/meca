@@ -94,10 +94,16 @@ export async function sendOwnerWebPush(
     cancelled:"고객이 예약을 취소했습니다. 관리자에서 확인해 주세요.",
     test:"테스트 알림입니다. 실제 고객 예약은 생성되지 않았습니다."
   };
-  const payload=encryptedPushPayload(recipient,{
-    title:titles[event.event_type],body:bodies[event.event_type],tag:"meca-"+event.id,
-    url:"/dashboard"
-  });
+  let payload:Buffer;
+  try{
+    payload=encryptedPushPayload(recipient,{
+      title:titles[event.event_type],body:bodies[event.event_type],tag:"meca-"+event.id,
+      url:"/dashboard"
+    });
+  }catch{
+    // A single malformed/expired device must not block other subscriptions.
+    return "failed";
+  }
   let response:Response;
   try{
     response=await fetch(recipient.endpoint,{
