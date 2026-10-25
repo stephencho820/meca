@@ -48,9 +48,11 @@ export async function processOwnerPushQueue(bookingId?:string){
           const results:PushOutcome[]=await Promise.all(subs.map(async sub=>{
             const result=await sendOwnerWebPush(sub,{id:job.id,event_type:job.event_type});
             if(result==="gone"){
-              await db.rpc("prune_owner_push_subscription",{
-                p_token:token,p_subscription_id:sub.id
-              }).catch(()=>null);
+              try{
+                await db.rpc("prune_owner_push_subscription",{
+                  p_token:token,p_subscription_id:sub.id
+                });
+              }catch{/* An expired endpoint can be pruned on a later pass. */}
             }
             return result;
           }));
