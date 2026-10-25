@@ -30,11 +30,15 @@ export default function OwnerMobilePushSettings({shopId,isDemo}:{
      if(capable){
        const registration=await navigator.serviceWorker.getRegistration("/");
        const sub=await registration?.pushManager.getSubscription();
-       setEnabled(Boolean(sub));
+       if(sub&&db){
+         const {data:registered}=await db.from("owner_push_subscriptions")
+           .select("endpoint").eq("shop_id",shopId).limit(8);
+         setEnabled(Boolean(registered?.some(row=>row.endpoint===sub.endpoint)));
+       }else setEnabled(false);
      }
    }catch{setError("웹 푸시 설정 상태를 확인할 수 없습니다.");}
    finally{setLoading(false);}
- },[isDemo]);
+ },[db,isDemo,shopId]);
  useEffect(()=>{void reload();},[reload]);
 
  async function token(){
