@@ -91,6 +91,28 @@ export default function OwnerMobilePushSettings({shopId,isDemo}:{
    finally{setBusy(false);}
  }
 
+ async function sendTest(){
+   if(isDemo||!enabled||!supported)return;
+   setBusy(true);setError("");setNotice("");
+   try{
+     const reg=await navigator.serviceWorker.getRegistration("/");
+     const sub=await reg?.pushManager.getSubscription();
+     if(!sub)throw new Error("이 기기에 활성화된 구독이 없습니다. 알림을 다시 등록해 주세요.");
+     const res=await fetch("/api/owner-push/test",{
+       method:"POST",headers:{
+         Authorization:"Bearer "+await token(),
+         "Content-Type":"application/json"
+       },cache:"no-store",body:JSON.stringify({
+         shop_id:shopId,endpoint:sub.endpoint
+       })
+     });
+     const data=await res.json().catch(()=>null) as {error?:string;message?:string}|null;
+     if(!res.ok)throw new Error(data?.error||"테스트 알림 전송에 실패했습니다.");
+     setNotice(data?.message||"알림 발송 서버가 요청을 접수했습니다. 실제 휴대전화 수신을 확인해 주세요.");
+   }catch(e){setError(message(e));}
+   finally{setBusy(false);}
+ }
+
  async function disable(){
    if(!supported||isDemo)return;
    setBusy(true);setError("");setNotice("");
@@ -140,6 +162,9 @@ export default function OwnerMobilePushSettings({shopId,isDemo}:{
      <button type="button" className="btn btn-outline"
        disabled={busy||loading||isDemo||!supported||!enabled}
        onClick={()=>void disable()}>이 기기 알림 끄기</button>
+     <button type="button" className="btn btn-outline"
+       disabled={busy||loading||isDemo||!enabled}
+       onClick={()=>void sendTest()}>테스트 알림 보내기</button>
    </div>
    {notice&&<p className="success" role="status">{notice}</p>}
    {error&&<p className="error" role="alert">{error}</p>}
@@ -147,7 +172,7 @@ export default function OwnerMobilePushSettings({shopId,isDemo}:{
      안드로이드 Chrome 등에서 지원합니다. iPhone·iPad에서는 Safari의 ‘홈 화면에 추가’로 MECA를 설치한 다음
      홈 화면 아이콘으로 열어 알림을 허용해야 할 수 있습니다.
      알림 권한, 방해 금지 모드, 절전 모드, 네트워크 상태와 브라우저 지원에 따라 실제 수신이 제한될 수 있습니다.
-     실사용 전에 테스트 예약으로 알림 도착을 반드시 확인하세요.
+     먼저 ‘테스트 알림 보내기’로 실제 기기 수신을 확인하고, 운영 전에는 고객 예약 흐름도 함께 테스트하세요.
    </p>
  </div>;
 }
