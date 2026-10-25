@@ -296,7 +296,27 @@ function Dashboard(){
     if(!isDemo&&db){const {error:e}=await db.from("blocked_dates").delete().eq("shop_id",shop.id).eq("blocked_date",date);if(e){setError("휴무일 삭제에 실패했습니다.");return;}}
     setBlocked(x=>x.filter(b=>b.blocked_date!==date));setNotice("휴무일을 삭제했습니다.");
   };
-  const logout=async()=>{if(db)await db.auth.signOut();router.push("/");};
+  const logout=async()=>{
+    // A shared phone must not keep receiving workshop updates after logout.
+    if(db&&!isDemo&&shop&&typeof navigator!=="undefined"&&"serviceWorker" in navigator){
+      try{
+        const registration=await navigator.serviceWorker.getRegistration("/");
+        const sub=await registration?.pushManager.getSubscription();
+        const {data}=await db.auth.getSession();
+        const token=data.session?.access_token;
+        if(sub&&token){
+          const response=await fetch("/api/owner-push",{
+            method:"DELETE",headers:{
+              Authorization:"Bearer "+token,"Content-Type":"application/json"
+            },body:JSON.stringify({shop_id:shop.id,endpoint:sub.endpoint})
+          });
+          if(response.ok)await sub.unsubscribe();
+        }
+      }catch{/* Logout always remains possible if an offline unsubscribe fails. */}
+    }
+    if(db)await db.auth.signOut();
+    router.push("/");
+  };
   const filtered=bookings.filter(b=>(filter==="all"||b.status===filter)&&(b.customer_name.includes(query)||b.customer_phone.includes(query)||b.service_name.includes(query)));
   const navigateMonth=(delta:number)=>{const d=new Date(month+"-01T12:00:00+09:00");d.setUTCMonth(d.getUTCMonth()+delta);setMonth(kstDate(d).slice(0,7));};
   const calendarDays=useMemo(()=>{
