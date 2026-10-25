@@ -31,7 +31,7 @@ export default function OwnerBrowserAlerts({shopId,bookings,showSettings,isDemo}
        // Avoid duplicate phone + in-tab notifications on the same device.
        if("serviceWorker" in navigator){
          const registration=await navigator.serviceWorker.getRegistration("/");
-         if(await registration?.pushManager.getSubscription())return;
+         if(registration?.pushManager&&await registration.pushManager.getSubscription())return;
        }
        const alert=new Notification("MECA · 새 예약 승인 대기",{
          body:"새 고객 예약이 접수되었습니다. 관리자에서 확인해 주세요.",
