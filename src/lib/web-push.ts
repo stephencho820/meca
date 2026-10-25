@@ -77,7 +77,7 @@ export function encryptedPushPayload(recipient:PushRecipient,payload:object){
 }
 
 export async function sendOwnerWebPush(
- recipient:PushRecipient,event:{id:string;event_type:"requested"|"rescheduled"|"cancelled"}
+ recipient:PushRecipient,event:{id:string;event_type:"requested"|"rescheduled"|"cancelled"|"test"}
 ):Promise<PushOutcome>{
   const creds=config();
   if(!creds) return "failed";
@@ -85,12 +85,14 @@ export async function sendOwnerWebPush(
   const titles={
     requested:"MECA · 새 예약 승인 대기",
     rescheduled:"MECA · 예약 일정 변경",
-    cancelled:"MECA · 예약 취소"
+    cancelled:"MECA · 예약 취소",
+    test:"MECA · 휴대전화 알림 테스트"
   };
   const bodies={
     requested:"고객 예약이 접수되었습니다. 관리자에서 확인해 주세요.",
     rescheduled:"고객이 예약 일정을 변경했습니다. 관리자에서 확인해 주세요.",
-    cancelled:"고객이 예약을 취소했습니다. 관리자에서 확인해 주세요."
+    cancelled:"고객이 예약을 취소했습니다. 관리자에서 확인해 주세요.",
+    test:"테스트 알림입니다. 실제 고객 예약은 생성되지 않았습니다."
   };
   const payload=encryptedPushPayload(recipient,{
     title:titles[event.event_type],body:bodies[event.event_type],tag:"meca-"+event.id,
