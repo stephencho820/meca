@@ -95,7 +95,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/phase16-platform-admin.sql
 
   browser_e2e:
-    runs-on: ubuntu-latest
+    # Playwright 1.56.1 does not support GitHub's ubuntu26.04 runner.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
