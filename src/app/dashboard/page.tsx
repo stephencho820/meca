@@ -113,6 +113,9 @@ function Dashboard(){
       const {data:{user}}=await db.auth.getUser();
       if(!live)return;
       if(!user){router.replace("/login");return;}
+      const {data:isOperator}=await db.rpc("meca_is_operator");
+      if(!live)return;
+      if(isOperator){router.replace("/admin");return;}
       const {data:shops,error:e}=await db.from("shops").select("*").eq("owner_id",user.id).order("created_at",{ascending:true}).limit(1);
       if(!live)return;
       if(e){setError("매장 정보를 불러오지 못했습니다.");setLoading(false);return;}
